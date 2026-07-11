@@ -1,8 +1,9 @@
 """Retrieval tests for GET /analyses/{id} and /analyses/{id}/raw.
 
-`POST /analyses/single` runs the deterministic metric engine and LLM
-interpretation, and persists a full `AnalysisReport`, so these endpoints
-have real data to retrieve — see AnalysisService.create_single_analysis.
+`POST /analyses/single` runs the deterministic metric engine, LLM
+interpretation, and UIClip evaluation, and persists a full `AnalysisReport`,
+so these endpoints have real data to retrieve — see
+AnalysisService.create_single_analysis.
 """
 
 import pytest
@@ -39,7 +40,8 @@ def test_retrieved_report_contains_real_metric_output(client: TestClient, valid_
     body = response.json()
     assert body["lucidui"]["metricEngineVersion"] == "legacy-v1"
     assert isinstance(body["lucidui"]["weightedScore"], float)
-    assert body["status"] == "partial_success"
+    # LLM and UIClip mock providers both complete by default.
+    assert body["status"] == "completed"
 
 
 def test_llm_interpretation_is_persisted_and_retrievable(client: TestClient, valid_png_bytes: bytes) -> None:
@@ -55,6 +57,26 @@ def test_llm_interpretation_is_persisted_and_retrievable(client: TestClient, val
 
     raw_response = client.get(f"/api/v1/analyses/{analysis_id}/raw")
     assert raw_response.json()["llmInterpretation"] == created["llmInterpretation"]
+
+
+def test_uiclip_evaluation_is_persisted_and_retrievable(client: TestClient, valid_png_bytes: bytes) -> None:
+    created = client.post(
+        CREATE_ENDPOINT,
+        files={"image": ("shot.png", valid_png_bytes, "image/png")},
+        data={"description": "A profile settings page"},
+    ).json()
+    analysis_id = created["analysisId"]
+    assert created["uiclip"]["status"] == "completed"
+    assert created["uiclip"]["description"] == "A profile settings page"
+
+    response = client.get(f"/api/v1/analyses/{analysis_id}")
+    body = response.json()
+    assert body["uiclip"] == created["uiclip"]
+    assert body["uiclip"]["status"] == "completed"
+    assert body["uiclip"]["modelVersion"] == "mock-uiclip-v1"
+
+    raw_response = client.get(f"/api/v1/analyses/{analysis_id}/raw")
+    assert raw_response.json()["uiclip"] == created["uiclip"]
 
 
 def test_unknown_analysis_id_returns_404(client: TestClient) -> None:

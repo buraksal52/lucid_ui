@@ -13,7 +13,9 @@ def test_valid_png_upload_succeeds(client: TestClient, valid_png_bytes: bytes) -
     response = client.post(ENDPOINT, files={"image": ("shot.png", valid_png_bytes, "image/png")})
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "partial_success"
+    # Both LLM and UIClip mock providers complete by default, so the
+    # top-level status is "completed" per report-schema.md's own semantics.
+    assert body["status"] == "completed"
     assert body["imageMetadata"]["format"] == "png"
     assert body["imageMetadata"]["width"] == 64
     assert body["imageMetadata"]["height"] == 40
@@ -23,7 +25,7 @@ def test_valid_jpeg_upload_succeeds(client: TestClient, valid_jpeg_bytes: bytes)
     response = client.post(ENDPOINT, files={"image": ("shot.jpg", valid_jpeg_bytes, "image/jpeg")})
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "partial_success"
+    assert body["status"] == "completed"
     assert body["imageMetadata"]["format"] == "jpeg"
 
 
@@ -31,7 +33,7 @@ def test_valid_webp_upload_succeeds(client: TestClient, valid_webp_bytes: bytes)
     response = client.post(ENDPOINT, files={"image": ("shot.webp", valid_webp_bytes, "image/webp")})
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "partial_success"
+    assert body["status"] == "completed"
     assert body["imageMetadata"]["format"] == "webp"
 
 
@@ -80,9 +82,7 @@ def test_explicit_expert_context_succeeds(client: TestClient, valid_png_bytes: b
     assert response.json()["context"] == "expert"
 
 
-def test_description_and_run_uiclip_are_accepted_but_have_no_effect(
-    client: TestClient, valid_png_bytes: bytes
-) -> None:
+def test_run_uiclip_false_disables_uiclip_evaluation(client: TestClient, valid_png_bytes: bytes) -> None:
     response = client.post(
         ENDPOINT,
         files={"image": ("shot.png", valid_png_bytes, "image/png")},
@@ -90,8 +90,14 @@ def test_description_and_run_uiclip_are_accepted_but_have_no_effect(
     )
     assert response.status_code == 200
     body = response.json()
-    # UIClip does not exist yet regardless of runUiclip's value
-    assert body["uiclip"]["status"] == "disabled"
+    uiclip = body["uiclip"]
+    assert uiclip["enabled"] is False
+    assert uiclip["status"] == "disabled"
+    assert uiclip["modelVersion"] is None
+    assert uiclip["description"] is None
+    assert uiclip["descriptionSource"] is None
+    assert uiclip["inferenceTimeMs"] == 0
+    assert body["timings"]["uiclipMs"] == 0
 
 
 def test_metric_engine_output_is_embedded_in_the_report(client: TestClient, valid_png_bytes: bytes) -> None:
@@ -111,13 +117,46 @@ def test_metric_engine_output_is_embedded_in_the_report(client: TestClient, vali
     assert isinstance(lucidui["weightedScore"], float)
 
 
-def test_uiclip_and_comparison_sections_are_placeholders(client: TestClient, valid_png_bytes: bytes) -> None:
+def test_uiclip_evaluation_completes_by_default_via_mock_provider(
+    client: TestClient, valid_png_bytes: bytes
+) -> None:
     response = client.post(ENDPOINT, files={"image": ("shot.png", valid_png_bytes, "image/png")})
     body = response.json()
-    assert body["uiclip"]["enabled"] is False
-    assert body["uiclip"]["status"] == "disabled"
-    assert body["comparison"]["agreementLevel"] == "unavailable"
-    assert body["comparison"]["luciduiWeightedScore"] == body["lucidui"]["weightedScore"]
+    uiclip = body["uiclip"]
+    assert uiclip["enabled"] is True
+    assert uiclip["status"] == "completed"
+    assert uiclip["modelVersion"] == "mock-uiclip-v1"
+    assert uiclip["descriptionSource"] == "generic"
+    assert uiclip["description"] == "A software user interface screenshot."
+    assert isinstance(uiclip["qualityScore"], float)
+    # No verified official 0-100/0-1 normalization exists — must stay null.
+    assert uiclip["normalizedQualityScore"] is None
+    assert len(uiclip["observations"]) > 0
+    assert body["timings"]["uiclipMs"] >= 0
+
+
+def test_uiclip_uses_the_submitted_description(client: TestClient, valid_png_bytes: bytes) -> None:
+    response = client.post(
+        ENDPOINT,
+        files={"image": ("shot.png", valid_png_bytes, "image/png")},
+        data={"description": "A checkout flow with a payment form"},
+    )
+    body = response.json()
+    uiclip = body["uiclip"]
+    assert uiclip["descriptionSource"] == "user"
+    assert uiclip["description"] == "A checkout flow with a payment form"
+
+
+def test_comparison_section_remains_unavailable(client: TestClient, valid_png_bytes: bytes) -> None:
+    response = client.post(ENDPOINT, files={"image": ("shot.png", valid_png_bytes, "image/png")})
+    body = response.json()
+    comparison = body["comparison"]
+    assert comparison["agreementLevel"] == "unavailable"
+    assert comparison["absoluteScoreDifference"] is None
+    assert comparison["sharedFindings"] == []
+    assert comparison["luciduiOnlyFindings"] == []
+    assert comparison["uiclipOnlyFindings"] == []
+    assert comparison["luciduiWeightedScore"] == body["lucidui"]["weightedScore"]
 
 
 def test_llm_interpretation_completes_by_default_via_mock_provider(
@@ -147,6 +186,34 @@ def test_run_llm_false_disables_llm_interpretation(client: TestClient, valid_png
     assert llm["provider"] is None
     assert llm["summary"] is None
     assert llm["observations"] == []
+
+
+def test_uiclip_provider_runs_exactly_once_per_upload_and_receives_image_and_description(
+    monkeypatch: pytest.MonkeyPatch, client: TestClient, valid_png_bytes: bytes
+) -> None:
+    from PIL.Image import Image as PILImage
+
+    from app.uiclip.mock_provider import MockUIClipProvider
+
+    calls: list[tuple] = []
+    original_evaluate = MockUIClipProvider.evaluate
+
+    def counting_evaluate(self, image, description):
+        calls.append((image, description))
+        return original_evaluate(self, image, description)
+
+    monkeypatch.setattr(MockUIClipProvider, "evaluate", counting_evaluate)
+
+    response = client.post(
+        ENDPOINT,
+        files={"image": ("shot.png", valid_png_bytes, "image/png")},
+        data={"description": "A settings page"},
+    )
+    assert response.status_code == 200
+    assert len(calls) == 1
+    received_image, received_description = calls[0]
+    assert isinstance(received_image, PILImage)
+    assert received_description == "A settings page"
 
 
 def test_metric_engine_runs_exactly_once_per_upload(

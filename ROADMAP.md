@@ -60,15 +60,16 @@ This roadmap defines the phased development plan for LucidUI. Each phase must be
 - [x] Metric evidence validation (basic/structural: every observation must cite at least one metric path; not deep JSON-path resolution against `lucidui`)
 - [x] Tests (`backend/tests/test_llm_interpretation.py`, all failure paths, no real network call)
 
-## Phase 4 — UIClip Adapter Foundation
+## Phase 4 — UIClip Adapter Foundation (complete)
 
-- [ ] Evaluator interface
-- [ ] Mock evaluator
-- [ ] Disabled state
-- [ ] Unavailable state
-- [ ] Model metadata
-- [ ] Description sources
-- [ ] Tests
+- [x] Evaluator interface (`app.uiclip.provider.UIClipProvider`)
+- [x] Mock evaluator (`app.uiclip.mock_provider.MockUIClipProvider`, default and only implemented provider)
+- [x] Disabled state (`runUiclip=false` → `uiclip.status = "disabled"`, `uiclipMs = 0`, no provider call)
+- [x] Unavailable state (no/misconfigured provider → `uiclip.status = "unavailable"`, deterministic analysis and LLM interpretation still returned)
+- [x] Model metadata (`uiclip.modelVersion`, e.g. `"mock-uiclip-v1"`)
+- [x] Description sources (`user` when submitted, documented `generic` fallback when missing/blank — never invented ad hoc)
+- [x] Tests (`backend/tests/test_uiclip_evaluation.py`, `backend/tests/test_single_analysis.py`, `backend/tests/test_report_retrieval.py`)
+- [x] Official UIClip execution options verified (paper, HF weights, license — see docs/research/uiclip-integration.md); real model integration confirmed blocked/out of scope for this phase, deferred to Phase 5 per ADR-005 (unchanged from the original plan)
 
 ## Phase 5 — Real UIClip Integration
 

@@ -34,6 +34,13 @@ class Settings(BaseSettings):
     # truncating real responses.
     llm_max_output_tokens: int = 2048
 
+    # UIClip evaluation layer (see app.uiclip). Defaults to the offline mock
+    # evaluator; no real/official provider exists yet — see
+    # docs/research/uiclip-integration.md for why real integration is
+    # deferred to Phase 5. Any value other than "mock" gracefully degrades
+    # to uiclip.status = "unavailable" rather than raising.
+    uiclip_provider: str = "mock"
+
     @property
     def cors_allow_origins_list(self) -> list[str]:
         """Parse the comma-separated CORS origins setting into a list."""

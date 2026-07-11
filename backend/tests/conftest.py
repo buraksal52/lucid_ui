@@ -12,14 +12,16 @@ The `client` fixture also overrides `get_analysis_service` (the actual
 `Depends()`-injected callable in the routes — `get_llm_provider` itself is
 only ever called as a plain nested function, not a FastAPI sub-dependency,
 so overriding it directly via `app.dependency_overrides` would have no
-effect) so its `LLMInterpretationService` always uses `MockLLMProvider`,
-regardless of what a developer's local `backend/.env` configures. Without
-this override, a real `GEMINI_API_KEY` in `.env` would make API-level tests
-silently place real, billed, non-deterministic network calls — CLAUDE.md
-("Tests must not require ... LLM providers") must hold no matter what a
-developer's local environment happens to contain. The repository, image
-validator/decoder, and metric engine are still the real, shared instances
-so the rest of the pipeline is exercised normally.
+effect) so its `LLMInterpretationService`/`UIClipEvaluationService` always
+use `MockLLMProvider`/`MockUIClipProvider`, regardless of what a developer's
+local `backend/.env` configures. Without this override, a real
+`GEMINI_API_KEY` in `.env` would make API-level tests silently place real,
+billed, non-deterministic network calls — CLAUDE.md ("Tests must not
+require ... LLM providers") must hold no matter what a developer's local
+environment happens to contain. (No real UIClip provider exists yet, so this
+is defense-in-depth for Phase 5, not a live risk today.) The repository,
+image validator/decoder, and metric engine are still the real, shared
+instances so the rest of the pipeline is exercised normally.
 """
 
 import io
@@ -42,22 +44,25 @@ from app.llm.mock_provider import MockLLMProvider
 from app.llm.service import LLMInterpretationService
 from app.main import app
 from app.services.analysis_service import AnalysisService
+from app.uiclip.mock_provider import MockUIClipProvider
+from app.uiclip.service import UIClipEvaluationService
 
 
-def _analysis_service_with_mock_llm() -> AnalysisService:
+def _analysis_service_with_mock_providers() -> AnalysisService:
     return AnalysisService(
         repository=get_repository(),
         image_validator=get_image_validator(),
         image_decoder=get_image_decoder(),
         metric_engine=get_metric_engine(),
         llm_service=LLMInterpretationService(provider=MockLLMProvider(), provider_name="mock"),
+        uiclip_service=UIClipEvaluationService(provider=MockUIClipProvider(), provider_name="mock"),
     )
 
 
 @pytest.fixture
 def client() -> TestClient:
     get_repository.cache_clear()
-    app.dependency_overrides[get_analysis_service] = _analysis_service_with_mock_llm
+    app.dependency_overrides[get_analysis_service] = _analysis_service_with_mock_providers
     try:
         yield TestClient(app)
     finally:

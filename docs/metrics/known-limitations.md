@@ -24,7 +24,8 @@ This document collects limitations that apply broadly across the LucidUI determi
 
 ## Cross-System Limitations
 
-- **UIClip training-data dependence**: UIClip's output reflects patterns in its training data and is not a neutral or universal standard — see [docs/research/uiclip-integration.md](../research/uiclip-integration.md).
+- **UIClip training-data dependence**: UIClip's output reflects patterns in its training data and is not a neutral or universal standard — see [docs/research/uiclip-integration.md](../research/uiclip-integration.md). This applies to the real/official model; as of Phase 4, `uiclip` output is produced by `MockUIClipProvider` (a fixed, illustrative placeholder), not the real model, and carries no training-data dependence of its own.
+- **UIClip score has no confirmed universal normalization**: the official UIClip score is an uncalibrated dot-product similarity/logit value, not a documented 0-100 or 0-1 quality percentage — `uiclip.normalizedQualityScore` is intentionally left `null` rather than computed via an invented conversion. See [docs/research/uiclip-integration.md](../research/uiclip-integration.md).
 - **LLM interpretation dependence on input metrics**: the LLM interpretation stage can only be as accurate as the deterministic metric JSON it receives; it has no independent visual verification since it never sees the raw image (see [ADR-003](../architecture/decisions/ADR-003-json-only-llm-input.md)).
 
 ## How These Limitations Should Be Used

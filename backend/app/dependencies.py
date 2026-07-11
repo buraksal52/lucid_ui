@@ -4,11 +4,12 @@
 instance of each is reused across requests within a process, per the Phase 1
 requirement that the repository be shared rather than recreated per call —
 the same reasoning applies to the (stateless but non-trivial to construct)
-image validator/decoder/metric engine/LLM provider.
+image validator/decoder/metric engine/LLM/UIClip providers.
 
 As of Phase 2B-2, `get_metric_engine` is injected into `get_analysis_service`
 so `POST /analyses/single` runs real deterministic metrics. As of Phase 3,
-`get_llm_interpretation_service` is injected too — see ROADMAP.md.
+`get_llm_interpretation_service` is injected too. As of Phase 4,
+`get_uiclip_evaluation_service` is injected too — see ROADMAP.md.
 """
 
 from functools import lru_cache
@@ -25,6 +26,9 @@ from app.metrics.engine import MetricEngine
 from app.repositories.base import AnalysisRepository
 from app.repositories.in_memory import InMemoryAnalysisRepository
 from app.services.analysis_service import AnalysisService
+from app.uiclip.mock_provider import MockUIClipProvider
+from app.uiclip.provider import UIClipProvider
+from app.uiclip.service import UIClipEvaluationService
 
 
 @lru_cache
@@ -81,6 +85,28 @@ def get_llm_interpretation_service() -> LLMInterpretationService:
     return LLMInterpretationService(provider=get_llm_provider(), provider_name=settings.llm_provider)
 
 
+@lru_cache
+def get_uiclip_provider() -> UIClipProvider | None:
+    """Selects the configured UIClip provider.
+
+    Only `"mock"` is implemented as of Phase 4 — no official/real UIClip
+    model is loaded (see docs/research/uiclip-integration.md for why).
+    Any other configured value gracefully returns `None` so
+    `UIClipEvaluationService` reports `uiclip.status = "unavailable"`
+    instead of raising, exactly like `get_llm_provider`.
+    """
+    settings = get_settings()
+    if settings.uiclip_provider == "mock":
+        return MockUIClipProvider()
+    return None
+
+
+@lru_cache
+def get_uiclip_evaluation_service() -> UIClipEvaluationService:
+    settings = get_settings()
+    return UIClipEvaluationService(provider=get_uiclip_provider(), provider_name=settings.uiclip_provider)
+
+
 def get_analysis_service() -> AnalysisService:
     return AnalysisService(
         repository=get_repository(),
@@ -88,4 +114,5 @@ def get_analysis_service() -> AnalysisService:
         image_decoder=get_image_decoder(),
         metric_engine=get_metric_engine(),
         llm_service=get_llm_interpretation_service(),
+        uiclip_service=get_uiclip_evaluation_service(),
     )

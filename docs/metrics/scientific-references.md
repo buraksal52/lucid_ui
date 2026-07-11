@@ -34,4 +34,6 @@ Hasler, D., & Süsstrunk, S. (2003). "Measuring colorfulness in natural images."
 
 UIClip is used as an independent, pretrained vision-language evaluator for UI screenshots.
 
-TODO: add the exact UIClip paper title, authors, venue, and publication year, and a link to the official project/code repository, once confirmed. Do not implement or document integration details beyond what is confirmed from the primary source — see [docs/research/uiclip-integration.md](../research/uiclip-integration.md).
+Wu, J., Peng, Y.-H., Li, X. Y., Swearngin, A., Bigham, J. P., & Nichols, J. (2024). "UIClip: A Data-driven Model for Assessing User Interface Design." *Proceedings of the 37th Annual ACM Symposium on User Interface Software and Technology (UIST '24)*. [arXiv:2404.12500](https://arxiv.org/abs/2404.12500). Model weights: Hugging Face `biglab/uiclip_jitteredwebsites-2-224-paraphrased` (MIT license).
+
+No official, independently-verified inference code repository was found as of Phase 4 (see [docs/research/uiclip-integration.md](../research/uiclip-integration.md) for the full verification writeup) — only the Hugging Face model card. LucidUI's real/official UIClip integration remains deferred to Phase 5 for this reason.
