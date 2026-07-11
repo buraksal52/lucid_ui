@@ -1,0 +1,11 @@
+{
+  "error": {
+    "code": "INVALID_IMAGE",
+    "message": "The uploaded file could not be decoded.",
+    "details": {
+      "field": "image",
+      "fileName": "corrupted-screenshot.png",
+      "reason": "Image decoder could not parse the file as a valid PNG."
+    }
+  }
+}

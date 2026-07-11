@@ -1,0 +1,175 @@
+{
+  "schemaVersion": "1.0",
+  "analysisId": "3f9c6b1a-2e6b-4a3a-9a3a-1a2b3c4d5e6f",
+  "mode": "single",
+  "context": "general",
+  "status": "completed",
+  "imageMetadata": {
+    "fileName": "dashboard-mock.png",
+    "format": "PNG",
+    "widthPx": 1440,
+    "heightPx": 1024,
+    "fileSizeBytes": 812345,
+    "colorMode": "RGB"
+  },
+  "lucidui": {
+    "engineVersion": "0.1.0-mock",
+    "scoringRulesetVersion": "1.0",
+    "raw": {
+      "contrast": {
+        "value": "4.1:1",
+        "unit": "ratio",
+        "source": "wcag_relative_luminance",
+        "threshold": "4.5:1",
+        "thresholdSource": "WCAG 2.1 AA",
+        "aboveThreshold": false,
+        "proxyStatus": "partial_proxy"
+      },
+      "edgeDensity": {
+        "value": 0.21,
+        "unit": "ratio",
+        "source": "canny_edge_pixel_ratio",
+        "proxyStatus": "proxy"
+      },
+      "detectedElementCount": {
+        "value": 47,
+        "unit": "count",
+        "source": "contours_plus_ocr_boxes",
+        "proxyStatus": "proxy"
+      },
+      "hicksLawEstimate": {
+        "value": 3.9,
+        "unit": "seconds_estimate",
+        "formula": "T = b * log2(n + 1)",
+        "constants": { "b": 0.7 },
+        "inputElementCount": 47,
+        "proxyStatus": "proxy_of_proxy",
+        "note": "Not a measurement of actual human reaction time."
+      },
+      "smallTargets": {
+        "count": 5,
+        "referenceSizePx": "44x44",
+        "proxyStatus": "proxy"
+      },
+      "fittsLawIndexOfDifficulty": {
+        "averageId": 4.2,
+        "unit": "bits",
+        "formula": "ID = log2(2D / W)",
+        "proxyStatus": "proxy"
+      },
+      "estimatedGroupCount": {
+        "value": 8,
+        "unit": "count",
+        "method": "distance_based_clustering",
+        "proxyStatus": "proxy"
+      },
+      "textDensity": {
+        "value": 0.14,
+        "unit": "ratio",
+        "wordsDetected": 132,
+        "proxyStatus": "proxy"
+      },
+      "fontSizeDiversityProxy": {
+        "value": 6.3,
+        "unit": "px_stddev",
+        "proxyStatus": "proxy"
+      },
+      "whitespaceRatio": {
+        "value": 0.38,
+        "unit": "ratio",
+        "proxyStatus": "proxy"
+      },
+      "alignmentVariance": {
+        "value": 3.1,
+        "unit": "px_variance",
+        "proxyStatus": "proxy"
+      },
+      "colorfulness": {
+        "value": 42.7,
+        "unit": "hasler_susstrunk_score",
+        "proxyStatus": "direct_computation"
+      },
+      "visualBalance": {
+        "leftRightLuminanceDiff": 0.05,
+        "topBottomLuminanceDiff": 0.09,
+        "unit": "normalized_luminance_diff",
+        "proxyStatus": "proxy"
+      }
+    },
+    "normalized": {
+      "contrast": 0.78,
+      "edgeDensity": 0.55,
+      "detectedElementCount": 0.62,
+      "smallTargets": 0.71,
+      "textDensity": 0.48,
+      "whitespaceRatio": 0.60,
+      "alignmentVariance": 0.66,
+      "colorfulness": 0.51,
+      "visualBalance": 0.74
+    },
+    "additionalSignals": {
+      "hicksLawEstimateNormalized": 0.58,
+      "fittsLawIndexOfDifficultyNormalized": 0.53,
+      "estimatedGroupCountNormalized": 0.64,
+      "fontSizeDiversityProxyNormalized": 0.49
+    },
+    "compositeSignalScore": {
+      "publicName": "LucidUI Composite Signal Score",
+      "value": 0.63,
+      "scale": "0-1",
+      "scoringRulesetVersion": "1.0",
+      "note": "A weighted summary of proxy signals. Not an objective quality score."
+    }
+  },
+  "llmInterpretation": {
+    "status": "completed",
+    "provider": "mock",
+    "summary": "Detected contrast is below the WCAG 2.1 AA reference threshold in sampled regions, and edge density is moderately high relative to comparable screens, suggesting a potential review area around visual density.",
+    "observations": [
+      {
+        "id": "obs-1",
+        "text": "Sampled contrast (4.1:1) is below the WCAG 2.1 AA reference threshold (4.5:1) in at least one detected text region.",
+        "metricEvidence": ["lucidui.raw.contrast"],
+        "category": "review_area"
+      },
+      {
+        "id": "obs-2",
+        "text": "Detected element count (47) and edge density (0.21) are both moderately high relative to typical dashboard screenshots analyzed so far.",
+        "metricEvidence": ["lucidui.raw.detectedElementCount", "lucidui.raw.edgeDensity"],
+        "category": "observation"
+      }
+    ]
+  },
+  "uiclip": {
+    "status": "completed",
+    "modelVersion": "uiclip-mock-0.1",
+    "preferenceScore": 0.58,
+    "scoreScale": "0-1",
+    "description": "A dashboard interface with multiple data panels and a dense navigation sidebar.",
+    "descriptionSource": "user",
+    "inferenceTimeMs": 420
+  },
+  "comparison": {
+    "agreementLevel": "partial",
+    "sharedFindings": [
+      "Both LucidUI and UIClip signals indicate moderate-to-high visual density in this screenshot."
+    ],
+    "luciduiOnlyFindings": [
+      "Contrast below the WCAG 2.1 AA reference threshold was only surfaced by the deterministic contrast metric."
+    ],
+    "uiclipOnlyFindings": [
+      "UIClip's preference score is moderately below the midpoint of its scale, without attributing this to a specific measurable factor."
+    ],
+    "scoreDifference": 0.05
+  },
+  "timings": {
+    "validationMs": 8,
+    "decodingMs": 35,
+    "luciduiMetricsMs": 210,
+    "llmInterpretationMs": 640,
+    "uiclipMs": 420,
+    "comparisonMs": 5,
+    "totalMs": 1318
+  },
+  "note": "Mocked example response for documentation purposes. Values are illustrative, not computed."
+}

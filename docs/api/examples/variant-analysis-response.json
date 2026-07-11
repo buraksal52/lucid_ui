@@ -1,0 +1,163 @@
+{
+  "schemaVersion": "1.0",
+  "analysisId": "7a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d",
+  "mode": "variants",
+  "context": "general",
+  "status": "completed",
+  "variantA": {
+    "schemaVersion": "1.0",
+    "analysisId": "3f9c6b1a-2e6b-4a3a-9a3a-1a2b3c4d5e6f",
+    "mode": "single",
+    "context": "general",
+    "status": "completed",
+    "imageMetadata": {
+      "fileName": "checkout-variant-a.png",
+      "format": "PNG",
+      "widthPx": 1280,
+      "heightPx": 900,
+      "fileSizeBytes": 654321,
+      "colorMode": "RGB"
+    },
+    "lucidui": {
+      "engineVersion": "0.1.0-mock",
+      "scoringRulesetVersion": "1.0",
+      "raw": {
+        "contrast": { "value": "5.2:1", "unit": "ratio", "threshold": "4.5:1", "thresholdSource": "WCAG 2.1 AA", "aboveThreshold": true, "proxyStatus": "partial_proxy" },
+        "edgeDensity": { "value": 0.16, "unit": "ratio", "proxyStatus": "proxy" },
+        "detectedElementCount": { "value": 28, "unit": "count", "proxyStatus": "proxy" },
+        "textDensity": { "value": 0.11, "unit": "ratio", "wordsDetected": 64, "proxyStatus": "proxy" },
+        "whitespaceRatio": { "value": 0.46, "unit": "ratio", "proxyStatus": "proxy" }
+      },
+      "normalized": {
+        "contrast": 0.9,
+        "edgeDensity": 0.68,
+        "detectedElementCount": 0.75,
+        "textDensity": 0.6,
+        "whitespaceRatio": 0.7
+      },
+      "compositeSignalScore": {
+        "publicName": "LucidUI Composite Signal Score",
+        "value": 0.74,
+        "scale": "0-1",
+        "scoringRulesetVersion": "1.0",
+        "note": "A weighted summary of proxy signals. Not an objective quality score."
+      }
+    },
+    "llmInterpretation": {
+      "status": "completed",
+      "provider": "mock",
+      "summary": "Contrast is above the WCAG 2.1 AA reference threshold and element density is comparatively low.",
+      "observations": [
+        {
+          "id": "obs-a1",
+          "text": "Sampled contrast (5.2:1) is above the WCAG 2.1 AA reference threshold (4.5:1).",
+          "metricEvidence": ["lucidui.raw.contrast"],
+          "category": "observation"
+        }
+      ]
+    },
+    "uiclip": {
+      "status": "completed",
+      "modelVersion": "uiclip-mock-0.1",
+      "preferenceScore": 0.71,
+      "scoreScale": "0-1",
+      "description": "A simplified checkout form with a single primary action.",
+      "descriptionSource": "user",
+      "inferenceTimeMs": 390
+    },
+    "comparison": {
+      "agreementLevel": "high",
+      "sharedFindings": ["Both signals indicate comparatively low visual density."],
+      "luciduiOnlyFindings": [],
+      "uiclipOnlyFindings": [],
+      "scoreDifference": 0.03
+    },
+    "timings": { "validationMs": 6, "decodingMs": 30, "luciduiMetricsMs": 180, "llmInterpretationMs": 560, "uiclipMs": 390, "comparisonMs": 4, "totalMs": 1170 },
+    "note": "Mocked example response for documentation purposes. Values are illustrative, not computed."
+  },
+  "variantB": {
+    "schemaVersion": "1.0",
+    "analysisId": "8b2c3d4e-5f6a-7b8c-9d0e-1f2a3b4c5d6e",
+    "mode": "single",
+    "context": "general",
+    "status": "partial_success",
+    "imageMetadata": {
+      "fileName": "checkout-variant-b.png",
+      "format": "PNG",
+      "widthPx": 1280,
+      "heightPx": 900,
+      "fileSizeBytes": 721098,
+      "colorMode": "RGB"
+    },
+    "lucidui": {
+      "engineVersion": "0.1.0-mock",
+      "scoringRulesetVersion": "1.0",
+      "raw": {
+        "contrast": { "value": "3.8:1", "unit": "ratio", "threshold": "4.5:1", "thresholdSource": "WCAG 2.1 AA", "aboveThreshold": false, "proxyStatus": "partial_proxy" },
+        "edgeDensity": { "value": 0.27, "unit": "ratio", "proxyStatus": "proxy" },
+        "detectedElementCount": { "value": 41, "unit": "count", "proxyStatus": "proxy" },
+        "textDensity": { "value": 0.19, "unit": "ratio", "wordsDetected": 118, "proxyStatus": "proxy" },
+        "whitespaceRatio": { "value": 0.31, "unit": "ratio", "proxyStatus": "proxy" }
+      },
+      "normalized": {
+        "contrast": 0.6,
+        "edgeDensity": 0.45,
+        "detectedElementCount": 0.52,
+        "textDensity": 0.4,
+        "whitespaceRatio": 0.5
+      },
+      "compositeSignalScore": {
+        "publicName": "LucidUI Composite Signal Score",
+        "value": 0.56,
+        "scale": "0-1",
+        "scoringRulesetVersion": "1.0",
+        "note": "A weighted summary of proxy signals. Not an objective quality score."
+      }
+    },
+    "llmInterpretation": {
+      "status": "completed",
+      "provider": "mock",
+      "summary": "Contrast is below the WCAG 2.1 AA reference threshold and element density is comparatively higher than variant A.",
+      "observations": [
+        {
+          "id": "obs-b1",
+          "text": "Sampled contrast (3.8:1) is below the WCAG 2.1 AA reference threshold (4.5:1).",
+          "metricEvidence": ["lucidui.raw.contrast"],
+          "category": "review_area"
+        }
+      ]
+    },
+    "uiclip": {
+      "status": "unavailable",
+      "modelVersion": null,
+      "preferenceScore": null,
+      "scoreScale": "0-1",
+      "description": null,
+      "descriptionSource": null,
+      "inferenceTimeMs": null
+    },
+    "comparison": {
+      "agreementLevel": "unknown",
+      "sharedFindings": [],
+      "luciduiOnlyFindings": ["Contrast below the WCAG 2.1 AA reference threshold."],
+      "uiclipOnlyFindings": [],
+      "scoreDifference": null
+    },
+    "timings": { "validationMs": 6, "decodingMs": 33, "luciduiMetricsMs": 195, "llmInterpretationMs": 580, "uiclipMs": null, "comparisonMs": 2, "totalMs": 816 },
+    "note": "UIClip evaluation was unavailable for this variant; deterministic and LLM sections completed normally."
+  },
+  "deltas": {
+    "compositeSignalScoreDelta": -0.18,
+    "contrastDelta": "-1.4:1",
+    "edgeDensityDelta": 0.11,
+    "detectedElementCountDelta": 13,
+    "textDensityDelta": 0.08,
+    "whitespaceRatioDelta": -0.15,
+    "uiclipPreferenceScoreDelta": null,
+    "note": "Deltas are computed as variantB minus variantA where both values are available."
+  },
+  "timings": {
+    "totalMs": 1170
+  },
+  "note": "Mocked example response for documentation purposes. Values are illustrative, not computed. Variant B illustrates a partial_success case where UIClip was unavailable."
+}

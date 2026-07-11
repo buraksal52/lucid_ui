@@ -1,0 +1,21 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="false" level="WARNING" enabled_by_default="false">
+      <option name="ignoredPackages">
+        <list>
+          <option value="langchain" />
+          <option value="langchain-community" />
+          <option value="langchain-core" />
+          <option value="langchain-openai" />
+          <option value="langchain-text-splitters" />
+          <option value="openai" />
+          <option value="python-dotenv" />
+          <option value="fastapi" />
+          <option value="langserve" />
+          <option value="sse_starlette" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
