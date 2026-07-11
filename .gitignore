@@ -1,0 +1,22 @@
+# IDE
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.env
+
+# macOS
+.DS_Store
+
+# Build / coverage
+dist/
+build/
+htmlcov/
+.coverage
