@@ -7,6 +7,7 @@ per CLAUDE.md ("Tests must not require ... LLM providers").
 
 import inspect
 import json
+from typing import Any
 
 import pytest
 
@@ -234,8 +235,17 @@ def test_llm_provider_unavailable_error_maps_to_llm_unavailable_code() -> None:
 
 
 class _FakeResponse:
-    def __init__(self, text: str | None) -> None:
+    """Stands in for `google.genai.types.GenerateContentResponse`.
+
+    `parsed` defaults to `None` (not simply omitted) to match the real SDK,
+    which always defines the field but leaves it `None` when it could not
+    build a structured result — `getattr(response, "parsed", None)` in the
+    provider must treat "attribute present but None" the same as "absent".
+    """
+
+    def __init__(self, text: str | None = None, parsed: object | None = None) -> None:
         self.text = text
+        self.parsed = parsed
 
 
 @pytest.fixture
@@ -243,17 +253,88 @@ def gemini_provider() -> GeminiLLMProvider:
     return GeminiLLMProvider(api_key="test-key", model="gemini-2.5-flash", max_output_tokens=1024)
 
 
-def test_gemini_provider_parses_valid_json_response(
+# ---- Structured-output config must set BOTH fields together ----
+
+
+def test_gemini_config_sets_json_mime_type_and_structured_schema_together(
+    gemini_provider: GeminiLLMProvider,
+) -> None:
+    config = gemini_provider._build_config("system prompt")
+    assert config.response_mime_type == "application/json"
+    assert config.response_schema is LLMStructuredOutput
+
+
+def test_gemini_config_disables_thinking(gemini_provider: GeminiLLMProvider) -> None:
+    """Thinking tokens were observed consuming ~980/1024 of the output
+    budget on realistic prompts, truncating the JSON answer before it could
+    be parsed (finish_reason=MAX_TOKENS). Disabling thinking removes that
+    failure mode at the source."""
+    config = gemini_provider._build_config("system prompt")
+    assert config.thinking_config.thinking_budget == 0
+
+
+def test_gemini_provider_sends_the_built_config_to_generate_content(
     monkeypatch: pytest.MonkeyPatch, gemini_provider: GeminiLLMProvider
 ) -> None:
-    valid_payload = MockLLMProvider().complete("s", "u")
+    captured: dict[str, Any] = {}
+
+    def capturing_generate_content(**kwargs):
+        captured.update(kwargs)
+        return _FakeResponse(text=json.dumps(MockLLMProvider().complete("s", "u")))
+
+    monkeypatch.setattr(gemini_provider._client.models, "generate_content", capturing_generate_content)
+    gemini_provider.complete("system", "user")
+
+    sent_config = captured["config"]
+    assert sent_config.response_mime_type == "application/json"
+    assert sent_config.response_schema is LLMStructuredOutput
+    assert sent_config.system_instruction == "system"
+    assert captured["contents"] == "user"
+
+
+# ---- Debug logging: finish_reason / usage_metadata visible, content never logged ----
+
+
+class _FakeCandidate:
+    def __init__(self, finish_reason: str) -> None:
+        self.finish_reason = finish_reason
+
+
+def test_gemini_provider_logs_finish_reason_and_usage_metadata(
+    monkeypatch: pytest.MonkeyPatch, gemini_provider: GeminiLLMProvider, caplog: pytest.LogCaptureFixture
+) -> None:
+    class _ResponseWithMetadata(_FakeResponse):
+        def __init__(self) -> None:
+            super().__init__(text=json.dumps(MockLLMProvider().complete("s", "u")))
+            self.candidates = [_FakeCandidate(finish_reason="MAX_TOKENS")]
+            self.usage_metadata = "thoughts_token_count=979 total_token_count=1024"
+
+    monkeypatch.setattr(gemini_provider._client.models, "generate_content", lambda **kwargs: _ResponseWithMetadata())
+
+    with caplog.at_level("DEBUG", logger="lucidui.llm.gemini"):
+        gemini_provider.complete("system", "user")
+
+    joined = "\n".join(record.message for record in caplog.records)
+    assert "MAX_TOKENS" in joined
+    assert "thoughts_token_count" in joined
+    assert "test-key" not in joined  # the API key must never be logged
+
+
+def test_gemini_provider_never_logs_raw_response_content(
+    monkeypatch: pytest.MonkeyPatch, gemini_provider: GeminiLLMProvider, caplog: pytest.LogCaptureFixture
+) -> None:
+    secret_marker = "UNIQUE_SENTINEL_TEXT_MUST_NOT_APPEAR_IN_LOGS"
+    payload = MockLLMProvider().complete("s", "u")
+    payload["summary"] = secret_marker
     monkeypatch.setattr(
-        gemini_provider._client.models,
-        "generate_content",
-        lambda **kwargs: _FakeResponse(json.dumps(valid_payload)),
+        gemini_provider._client.models, "generate_content", lambda **kwargs: _FakeResponse(text=json.dumps(payload))
     )
-    result = gemini_provider.complete("system", "user")
-    assert result == valid_payload
+
+    with caplog.at_level("DEBUG", logger="lucidui.llm.gemini"):
+        gemini_provider.complete("system", "user")
+
+    joined = "\n".join(record.message for record in caplog.records)
+    assert secret_marker not in joined
 
 
 def test_gemini_provider_wraps_network_errors(
@@ -267,19 +348,91 @@ def test_gemini_provider_wraps_network_errors(
         gemini_provider.complete("system", "user")
 
 
-def test_gemini_provider_raises_on_empty_response(
+# ---- response.parsed present (preferred path) ----
+
+
+def test_gemini_provider_uses_response_parsed_when_it_is_a_structured_output_instance(
     monkeypatch: pytest.MonkeyPatch, gemini_provider: GeminiLLMProvider
 ) -> None:
-    monkeypatch.setattr(gemini_provider._client.models, "generate_content", lambda **kwargs: _FakeResponse(None))
+    valid_payload = MockLLMProvider().complete("s", "u")
+    parsed_instance = LLMStructuredOutput.model_validate(valid_payload)
+    monkeypatch.setattr(
+        gemini_provider._client.models,
+        "generate_content",
+        # response.text deliberately malformed to prove .parsed is what's used, not .text
+        lambda **kwargs: _FakeResponse(text="not valid json at all", parsed=parsed_instance),
+    )
+    result = gemini_provider.complete("system", "user")
+    assert result == parsed_instance.model_dump(by_alias=True)
+
+
+def test_gemini_provider_uses_response_parsed_when_it_is_a_dict(
+    monkeypatch: pytest.MonkeyPatch, gemini_provider: GeminiLLMProvider
+) -> None:
+    valid_payload = MockLLMProvider().complete("s", "u")
+    monkeypatch.setattr(
+        gemini_provider._client.models,
+        "generate_content",
+        lambda **kwargs: _FakeResponse(text="not valid json at all", parsed=valid_payload),
+    )
+    result = gemini_provider.complete("system", "user")
+    assert result == LLMStructuredOutput.model_validate(valid_payload).model_dump(by_alias=True)
+
+
+def test_gemini_provider_raises_when_parsed_dict_fails_schema_validation(
+    monkeypatch: pytest.MonkeyPatch, gemini_provider: GeminiLLMProvider
+) -> None:
+    invalid_parsed = {"not": "matching the LLMStructuredOutput schema at all"}
+    monkeypatch.setattr(
+        gemini_provider._client.models,
+        "generate_content",
+        lambda **kwargs: _FakeResponse(text=None, parsed=invalid_parsed),
+    )
     with pytest.raises(LLMInterpretationError):
         gemini_provider.complete("system", "user")
 
 
-def test_gemini_provider_raises_on_invalid_json(
+# ---- response.parsed absent — falls back to response.text ----
+
+
+def test_gemini_provider_falls_back_to_text_when_parsed_is_absent(
+    monkeypatch: pytest.MonkeyPatch, gemini_provider: GeminiLLMProvider
+) -> None:
+    valid_payload = MockLLMProvider().complete("s", "u")
+    monkeypatch.setattr(
+        gemini_provider._client.models,
+        "generate_content",
+        lambda **kwargs: _FakeResponse(text=json.dumps(valid_payload), parsed=None),
+    )
+    result = gemini_provider.complete("system", "user")
+    assert result == valid_payload
+
+
+def test_gemini_provider_raises_on_empty_response(
+    monkeypatch: pytest.MonkeyPatch, gemini_provider: GeminiLLMProvider
+) -> None:
+    monkeypatch.setattr(gemini_provider._client.models, "generate_content", lambda **kwargs: _FakeResponse(text=None))
+    with pytest.raises(LLMInterpretationError):
+        gemini_provider.complete("system", "user")
+
+
+def test_gemini_provider_raises_on_invalid_json_text_fallback(
     monkeypatch: pytest.MonkeyPatch, gemini_provider: GeminiLLMProvider
 ) -> None:
     monkeypatch.setattr(
-        gemini_provider._client.models, "generate_content", lambda **kwargs: _FakeResponse("not valid json")
+        gemini_provider._client.models, "generate_content", lambda **kwargs: _FakeResponse(text="not valid json")
+    )
+    with pytest.raises(LLMInterpretationError):
+        gemini_provider.complete("system", "user")
+
+
+def test_gemini_provider_raises_when_text_fallback_json_fails_schema_validation(
+    monkeypatch: pytest.MonkeyPatch, gemini_provider: GeminiLLMProvider
+) -> None:
+    monkeypatch.setattr(
+        gemini_provider._client.models,
+        "generate_content",
+        lambda **kwargs: _FakeResponse(text=json.dumps({"not": "matching the schema"})),
     )
     with pytest.raises(LLMInterpretationError):
         gemini_provider.complete("system", "user")
@@ -308,8 +461,12 @@ def test_get_llm_provider_defaults_to_mock(monkeypatch: pytest.MonkeyPatch) -> N
 
     get_settings.cache_clear()
     get_llm_provider.cache_clear()
-    monkeypatch.delenv("LLM_PROVIDER", raising=False)
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    # Explicit overrides, not delenv: pydantic-settings falls through to a
+    # real backend/.env file when an env var is merely removed from
+    # os.environ, since env_file ranks below (not above) process env vars.
+    # A developer's local .env may legitimately hold real gemini settings.
+    monkeypatch.setenv("LLM_PROVIDER", "mock")
+    monkeypatch.setenv("GEMINI_API_KEY", "")
 
     provider = get_llm_provider()
     assert isinstance(provider, MockLLMProvider)
@@ -325,7 +482,7 @@ def test_get_llm_provider_is_none_when_gemini_selected_without_a_key(monkeypatch
     get_settings.cache_clear()
     get_llm_provider.cache_clear()
     monkeypatch.setenv("LLM_PROVIDER", "gemini")
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("GEMINI_API_KEY", "")  # explicit override — see note above
 
     provider = get_llm_provider()
     assert provider is None

@@ -29,7 +29,10 @@ class Settings(BaseSettings):
     llm_provider: str = "mock"
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.5-flash"
-    llm_max_output_tokens: int = 1024
+    # 2048 leaves headroom beyond a realistic structured response even with
+    # thinking disabled (see app.llm.gemini_provider); 1024 was observed
+    # truncating real responses.
+    llm_max_output_tokens: int = 2048
 
     @property
     def cors_allow_origins_list(self) -> list[str]:
