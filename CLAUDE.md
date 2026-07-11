@@ -1,49 +1,338 @@
 # CLAUDE.md
 
-Instructions for Claude Code when working on the LucidUI repository. Read this file before starting any task.
+Instructions for Claude Code when working on the LucidUI repository.
 
-## Project Identity
+Always read this document before starting any implementation.
 
-- LucidUI analyzes UI screenshots using a deterministic, explainable metric engine (classical computer vision, OCR, and HCI/cognitive-science-inspired proxy metrics).
-- LucidUI compares its deterministic metrics with UIClip, a learned vision-language model used as an **independent evaluator**, not as ground truth.
-- An LLM interprets deterministic metric JSON only. It never receives raw screenshots.
-- The React frontend is developed independently from the backend and consumes only the documented API contract.
-- See [README.md](README.md), [ARCHITECTURE.md](ARCHITECTURE.md), and [ROADMAP.md](ROADMAP.md) for full context.
+---
 
-## Product Positioning: Flashlight, Not a Judge
+# Project Identity
 
-LucidUI never claims a UI is objectively good, bad, correct, incorrect, beautiful, or ugly. It reports measurable signals, proxy metrics, threshold comparisons, model observations, agreements, and discrepancies. Use language such as "higher/lower," "above/below a reference threshold," "potential review area," "estimated," "detected," and "proxy signal." Never use verdict language. See [docs/product/terminology.md](docs/product/terminology.md) and [docs/frontend/FRONTEND_GUIDE.md](docs/frontend/FRONTEND_GUIDE.md).
+LucidUI is a research-oriented UI analysis platform.
 
-## Mandatory Rules
+It analyzes UI screenshots using:
 
-- Do not modify validated legacy metric formulas unless explicitly instructed.
-- Do not send raw images to an LLM.
-- Do not write uploaded images to disk by default.
-- Do not treat proxy metrics as direct cognitive measurements.
-- Do not treat UIClip as ground truth.
-- Do not calculate correlation from a single screenshot.
-- Do not put business logic inside FastAPI route functions. Routes handle HTTP concerns only; services and pipelines hold logic.
-- Do not modify the frontend unless a task explicitly targets the frontend.
-- Do not continue to a new roadmap phase without explicit instruction.
-- Use Python type hints everywhere in backend code.
-- Use structured JSON outputs for all API responses and LLM outputs.
-- Add tests for every backend feature.
-- Keep APIs backward-compatible whenever possible; bump `schemaVersion` when contracts change.
-- Update relevant documentation when contracts change.
+- deterministic computer vision
+- OCR
+- explainable HCI-inspired proxy metrics
 
-## Development Workflow
+LucidUI compares those deterministic metrics with **UIClip**, a learned vision-language model acting as an **independent evaluator**, never as ground truth.
 
-For every future task:
+An LLM interprets deterministic metric JSON only.
 
-1. Read `CLAUDE.md`.
-2. Read `ROADMAP.md`.
-3. Read the relevant architecture and API documents (`ARCHITECTURE.md`, `docs/architecture/`, `docs/api/`).
-4. Implement only the requested phase — do not pull in later-phase work.
+Raw screenshots must never be sent to an LLM.
+
+The React frontend is developed independently and communicates only through the documented API contracts.
+
+Project documentation:
+
+- README.md
+- ROADMAP.md
+- ARCHITECTURE.md
+- docs/
+
+---
+
+# Product Philosophy
+
+## Flashlight, Not a Judge
+
+LucidUI does **not** determine whether a design is objectively good or bad.
+
+It reports:
+
+- measurable signals
+- proxy metrics
+- threshold comparisons
+- observations
+- agreements
+- discrepancies
+- review areas
+
+Prefer wording such as:
+
+- detected
+- estimated
+- above reference threshold
+- below reference threshold
+- proxy signal
+- higher
+- lower
+- potential review area
+
+Avoid wording such as:
+
+- bad UI
+- wrong design
+- ugly
+- scientifically proven
+- objectively better
+
+---
+
+# Architecture Rules
+
+The dependency direction is strict.
+
+```
+API
+→ Services
+→ Pipelines
+→ Domain Interfaces
+→ Adapters
+```
+
+Never create reverse dependencies.
+
+The following modules must remain independent:
+
+- metrics
+- llm
+- uiclip
+- repositories
+
+The metric engine must never import the LLM layer.
+
+The UIClip adapter must never import deterministic metric logic.
+
+Repositories must never depend on FastAPI.
+
+Routes must only handle HTTP concerns.
+
+Business logic belongs in services and pipelines.
+
+---
+
+# Legacy Metric Engine
+
+The deterministic metric engine is considered validated scientific logic.
+
+Do **not** modify:
+
+- mathematical formulas
+- thresholds
+- heuristics
+- weighting rules
+- output semantics
+
+unless explicitly instructed.
+
+Allowed:
+
+- modularization
+- wrappers
+- dependency injection
+- documentation
+- testing
+- code organization
+
+Behavior must remain identical.
+
+---
+
+# LLM Rules
+
+LLMs are interpreters.
+
+They must never:
+
+- invent metrics
+- contradict deterministic measurements
+- fabricate evidence
+- infer information not present in the metric JSON
+
+Every recommendation must be traceable to one or more deterministic metrics.
+
+LLMs receive JSON only.
+
+Raw screenshots must never be sent to an LLM.
+
+---
+
+# UIClip Rules
+
+UIClip is an independent learned evaluator.
+
+It is not:
+
+- ground truth
+- objective quality
+- scientific proof
+
+UIClip and LucidUI are complementary systems.
+
+They may agree.
+
+They may disagree.
+
+Both outputs should be shown.
+
+---
+
+# Image Processing Rules
+
+Uploaded images must:
+
+- remain in memory
+- never be written to disk by default
+- never be logged
+- never be exposed to external services unless explicitly configured
+
+The same uploaded bytes should be reused to generate:
+
+- OpenCV image
+- Pillow image
+
+---
+
+# API Rules
+
+Public API schemas are contracts.
+
+Do not rename:
+
+- endpoints
+- JSON fields
+- enum values
+
+unless explicitly instructed.
+
+Backward compatibility has priority.
+
+When breaking changes are required:
+
+- bump schemaVersion
+- update documentation
+
+---
+
+# Metric Rules
+
+Every metric should expose:
+
+- raw value
+- normalized value
+- interpretation
+- limitations
+- threshold (when applicable)
+
+Never discard raw values.
+
+Never expose normalized values without preserving the originals.
+
+---
+
+# Coding Rules
+
+Use:
+
+- Python type hints
+- Pydantic models
+- dependency injection
+- composition over inheritance
+- explicit code over magic
+
+Avoid:
+
+- unnecessary abstractions
+- premature optimization
+- overly clever implementations
+
+Do not introduce design patterns unless they clearly reduce future complexity.
+
+---
+
+# Testing Rules
+
+Every backend feature must include:
+
+- success tests
+- validation tests
+- failure tests
+
+Bug fixes should include regression tests whenever practical.
+
+Tests must not require:
+
+- external APIs
+- internet access
+- GPU
+- UIClip
+- OCR
+- LLM providers
+
+unless explicitly requested.
+
+---
+
+# Logging Rules
+
+Never log:
+
+- uploaded image bytes
+- API keys
+- secrets
+- sensitive user data
+
+Log:
+
+- application lifecycle
+- requests
+- analysis creation
+- recoverable failures
+- unexpected exceptions
+
+---
+
+# Documentation Rules
+
+Documentation is part of the implementation.
+
+Whenever public behavior changes, update:
+
+- README.md
+- ROADMAP.md
+- API documentation
+- architecture documentation
+
+before considering the task complete.
+
+---
+
+# Development Workflow
+
+For every task:
+
+1. Read CLAUDE.md.
+2. Read ROADMAP.md.
+3. Read relevant documentation.
+4. Implement only the requested phase.
 5. Run relevant tests.
-6. Report created and modified files.
-7. Report unresolved risks.
-8. Stop and wait for the next task.
+6. Report modified files.
+7. Report remaining risks.
+8. Stop.
 
-## Current Status
+Never continue into the next roadmap phase unless explicitly instructed.
 
-Phase 0 (Documentation and Architecture Foundation) is complete. No backend or frontend implementation exists yet. Do not begin Phase 1 unless explicitly instructed.
+---
+
+# When Uncertain
+
+Do not guess.
+
+Do not invent behavior.
+
+Prefer asking for clarification over implementing assumptions.
+
+---
+
+# Definition of Success
+
+A task is complete only when:
+
+- requested functionality works
+- tests pass
+- documentation is updated
+- architecture rules are respected
+- API contracts remain consistent
+- no unrelated code has been modified

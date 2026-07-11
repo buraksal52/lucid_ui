@@ -1,24 +1,13 @@
+"""Retrieval tests for GET /analyses/{id} and /analyses/{id}/raw.
+
+Phase 2A's `/analyses/single` no longer produces a persisted `AnalysisReport`
+(see docs/api/api-contract.md) — it returns a temporary "accepted" response
+and does not run analysis, so there is nothing yet to store or retrieve.
+These endpoints are otherwise unchanged from Phase 1; a full report becomes
+retrievable again once Phase 2B's pipeline populates the repository.
+"""
+
 from fastapi.testclient import TestClient
-
-ENDPOINT = "/api/v1/analyses/single"
-
-
-def test_created_analysis_can_be_retrieved(client: TestClient) -> None:
-    created = client.post(ENDPOINT, json={}).json()
-    analysis_id = created["analysisId"]
-
-    response = client.get(f"/api/v1/analyses/{analysis_id}")
-    assert response.status_code == 200
-    assert response.json() == created
-
-
-def test_raw_returns_same_report_in_phase_1(client: TestClient) -> None:
-    created = client.post(ENDPOINT, json={}).json()
-    analysis_id = created["analysisId"]
-
-    response = client.get(f"/api/v1/analyses/{analysis_id}/raw")
-    assert response.status_code == 200
-    assert response.json() == created
 
 
 def test_unknown_analysis_id_returns_404(client: TestClient) -> None:

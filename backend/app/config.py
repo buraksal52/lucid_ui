@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     debug: bool = True
     cors_allow_origins: str = "*"
+    max_upload_size_bytes: int = 20 * 1024 * 1024
 
     @property
     def cors_allow_origins_list(self) -> list[str]:

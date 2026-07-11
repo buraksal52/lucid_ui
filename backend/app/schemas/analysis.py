@@ -1,14 +1,17 @@
 """Single-analysis request/response schemas.
 
-`SingleAnalysisRequest` is Phase 1's temporary JSON-only request body — it
-accepts no image, per the roadmap (image upload is Phase 2). `context` is kept
-as a plain string here rather than the `AnalysisContext` enum so the service
-layer can raise the documented `INVALID_CONTEXT` domain error instead of a
-generic schema validation error; see app.services.analysis_service.
+`AnalysisAcceptedResponse` is Phase 2A's temporary response for
+`POST /analyses/single`: the endpoint now accepts a real multipart image
+upload and validates/decodes it, but does not yet run any metric, LLM, or
+UIClip stage (those land in Phase 2B+), so it cannot return a full
+`AnalysisReport` yet. See docs/api/api-contract.md.
 """
 
-from pydantic import Field, field_validator
+from typing import Literal
 
+from pydantic import Field
+
+from app.images.models import ImageMetadata as DecodedImageMetadata
 from app.schemas.common import AnalysisContext, AnalysisMode, AnalysisStatus, CamelModel
 from app.schemas.comparison import ComparisonResult
 from app.schemas.llm import LLMInterpretationResult
@@ -16,19 +19,14 @@ from app.schemas.metrics import LucidUIResult
 from app.schemas.uiclip import UIClipResult
 
 
-class SingleAnalysisRequest(CamelModel):
-    context: str = Field(default=AnalysisContext.GENERAL.value)
-    description: str | None = Field(default=None)
-    run_llm: bool = Field(default=True)
-    run_uiclip: bool = Field(default=True)
+class AnalysisAcceptedResponse(CamelModel):
+    """Temporary Phase 2A response: the image was validated and decoded, but
+    no analysis has run yet."""
 
-    @field_validator("description", mode="before")
-    @classmethod
-    def _normalize_description(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        trimmed = value.strip()
-        return trimmed or None
+    analysis_id: str
+    status: Literal["accepted"] = "accepted"
+    image_metadata: DecodedImageMetadata
+    message: str = Field(default="Image successfully validated and decoded.")
 
 
 class ImageMetadata(CamelModel):
