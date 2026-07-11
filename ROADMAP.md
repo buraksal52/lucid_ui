@@ -26,10 +26,16 @@ This roadmap defines the phased development plan for LucidUI. Each phase must be
 
 ## Phase 2 — Image Upload and Deterministic Metric Engine
 
-- [ ] MIME validation
-- [ ] 20 MB file limit
-- [ ] In-memory decoding
-- [ ] Image metadata
+### Phase 2A — Image Processing Infrastructure (complete)
+
+- [x] MIME validation
+- [x] 20 MB file limit
+- [x] In-memory decoding
+- [x] Image metadata
+- [x] Tests
+
+### Phase 2B — Deterministic Metric Engine (not started)
+
 - [ ] Legacy metric adapter
 - [ ] JSON-safe serialization
 - [ ] Weighted signal score

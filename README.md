@@ -36,9 +36,9 @@ LLM Interpretation
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full architectural explanation.
 
-## Current Project Status: Phase 1
+## Current Project Status: Phase 2A
 
-Phase 0 (documentation and architecture foundation) is complete. Phase 1 (FastAPI foundation) is also complete: a running backend exists with versioned routes, a health endpoint, an in-memory repository, structured JSON error handling, and a **mocked** single-analysis endpoint. No real image processing, LLM interpretation, or UIClip inference exists yet — analysis responses in Phase 1 are realistic but fabricated. See [ROADMAP.md](ROADMAP.md) for the full phased plan. The frontend is still not implemented.
+Phase 0 (documentation and architecture foundation) and Phase 1 (FastAPI foundation) are complete. Phase 2A (image processing infrastructure) is also complete: `POST /api/v1/analyses/single` now accepts a real `multipart/form-data` image upload (JPEG, PNG, or WebP, max 20 MB), validates and decodes it entirely in memory (never written to disk), and returns a temporary "accepted" response with the decoded image's metadata. No deterministic metric, LLM, or UIClip stage runs yet — those land in Phase 2B onward. See [ROADMAP.md](ROADMAP.md) for the full phased plan. The frontend is still not implemented.
 
 ## Planned Features
 
@@ -58,9 +58,9 @@ Phase 0 (documentation and architecture foundation) is complete. Phase 1 (FastAP
 
 See [docs/architecture/privacy-model.md](docs/architecture/privacy-model.md) for the full model.
 
-## Local Setup (Backend, Phase 1)
+## Local Setup (Backend, Phase 2A)
 
-The backend is a FastAPI application under `backend/`. Analysis responses are **mocked** in Phase 1 — no real image is processed yet.
+The backend is a FastAPI application under `backend/`. As of Phase 2A, `POST /api/v1/analyses/single` accepts and decodes a real uploaded image, but does not yet run any analysis — no metric, LLM, or UIClip stage exists yet (Phase 2B onward).
 
 ```bash
 cd backend
@@ -95,7 +95,7 @@ lucidui/
 ├── ROADMAP.md              Phased development plan
 ├── ARCHITECTURE.md         Architecture overview
 │
-├── backend/                FastAPI application (Phase 1 — mocked analysis only)
+├── backend/                FastAPI application (Phase 2A — image upload and validation only)
 ├── frontend/                (empty — not implemented yet)
 ├── samples/                 (empty — reserved for sample screenshots)
 │
@@ -126,4 +126,4 @@ See [ROADMAP.md](ROADMAP.md) for the complete list. In short: Phase 0 (documenta
 
 ## Status Note
 
-The backend (`backend/`) is runnable, but Phase 1 only implements the FastAPI foundation: routing, configuration, structured errors, an in-memory repository, and a mocked `/api/v1/analyses/single` endpoint. It does not yet perform real image analysis, real LLM interpretation, or real UIClip inference — those land in later phases (see [ROADMAP.md](ROADMAP.md)). The frontend (`frontend/`) is still not implemented.
+The backend (`backend/`) is runnable. Phase 1 delivered the FastAPI foundation: routing, configuration, structured errors, and an in-memory repository. Phase 2A added real image upload: `POST /api/v1/analyses/single` now validates (MIME type, size, corruption) and decodes an uploaded JPEG/PNG/WebP entirely in memory — never written to disk — and returns its metadata (width, height, format, aspect ratio, orientation, file size). It does not yet perform real deterministic-metric analysis, real LLM interpretation, or real UIClip inference — those land in later phases (see [ROADMAP.md](ROADMAP.md)). The frontend (`frontend/`) is still not implemented.
