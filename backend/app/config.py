@@ -23,6 +23,14 @@ class Settings(BaseSettings):
     cors_allow_origins: str = "*"
     max_upload_size_bytes: int = 20 * 1024 * 1024
 
+    # LLM interpretation layer (see app.llm). Defaults to the offline mock
+    # provider so the app runs with no API key; set LLM_PROVIDER=gemini and
+    # GEMINI_API_KEY to use the real provider.
+    llm_provider: str = "mock"
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-2.5-flash"
+    llm_max_output_tokens: int = 1024
+
     @property
     def cors_allow_origins_list(self) -> list[str]:
         """Parse the comma-separated CORS origins setting into a list."""

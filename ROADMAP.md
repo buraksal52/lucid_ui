@@ -49,16 +49,16 @@ This roadmap defines the phased development plan for LucidUI. Each phase must be
 - [x] Persist deterministic metric reports (`AnalysisRepository.save()`, exercised for the first time)
 - [x] Update the endpoint's success response to the full report shape (`AnalysisReport`, replacing Phase 2A's temporary `AnalysisAcceptedResponse`)
 
-## Phase 3 — LLM Interpretation Layer
+## Phase 3 — LLM Interpretation Layer (first version complete)
 
-- [ ] Provider interface
-- [ ] Mock provider
-- [ ] Anthropic provider
-- [ ] Structured output
-- [ ] Retry
-- [ ] Fallback
-- [ ] Metric evidence validation
-- [ ] Tests
+- [x] Provider interface (`app.llm.provider.LLMProvider`)
+- [x] Mock provider (`app.llm.mock_provider.MockLLMProvider`, default, no API key required)
+- [x] Gemini provider (`app.llm.gemini_provider.GeminiLLMProvider`, via the official `google-genai` SDK — chosen over Anthropic for this phase)
+- [x] Structured output (Gemini's native JSON schema constraint on `LLMStructuredOutput`, plus Pydantic validation in `LLMInterpretationService`)
+- [ ] Retry (not implemented — a single provider call per analysis; failures degrade to `unavailable`/`failed` rather than retrying)
+- [ ] Fallback (not implemented — no automatic secondary-provider chain; `LLMStatus.FALLBACK` remains defined but unused)
+- [x] Metric evidence validation (basic/structural: every observation must cite at least one metric path; not deep JSON-path resolution against `lucidui`)
+- [x] Tests (`backend/tests/test_llm_interpretation.py`, all failure paths, no real network call)
 
 ## Phase 4 — UIClip Adapter Foundation
 

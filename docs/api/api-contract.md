@@ -4,7 +4,7 @@ This is the target API contract for LucidUI. It describes the long-term, image-u
 
 All endpoints are versioned under `/api/v1`.
 
-> **Phase 2B-2 status**: `POST /api/v1/analyses/single` now implements the full request/response contract documented below, with one real gap: `llmInterpretation` and `uiclip` are always `disabled` placeholders (per the statuses documented in [report-schema.md](report-schema.md)), since no LLM or UIClip integration exists yet (Phase 3/4/5, see [ROADMAP.md](../../ROADMAP.md)). `comparison.agreementLevel` is correspondingly always `unavailable`. `lucidui` is real, computed output from the deterministic metric engine — see [docs/metrics/scoring-and-normalization.md](../metrics/scoring-and-normalization.md). The `runLlm`/`runUiclip` request fields are accepted and type-validated but have no effect yet, since there is nothing for them to toggle.
+> **Phase 3 status**: `POST /api/v1/analyses/single` now implements the full request/response contract documented below, with one remaining gap: `uiclip` is always a `disabled` placeholder (per the statuses documented in [report-schema.md](report-schema.md)), since no UIClip integration exists yet (Phase 4/5, see [ROADMAP.md](../../ROADMAP.md)). `comparison.agreementLevel` is correspondingly always `unavailable`. `lucidui` is real, computed output from the deterministic metric engine — see [docs/metrics/scoring-and-normalization.md](../metrics/scoring-and-normalization.md). `llmInterpretation` is now also real — see "LLM Interpretation" below. `runUiclip`/`description` are still accepted and type-validated but have no effect, since UIClip doesn't exist yet.
 
 ---
 
@@ -47,7 +47,7 @@ Field names use `camelCase` for consistency with the rest of this JSON API (this
 - `image` must be present and decodable; unsupported MIME type returns `UNSUPPORTED_MEDIA_TYPE`; corrupt/undecodable bytes return `INVALID_IMAGE`; oversized files return `FILE_TOO_LARGE`.
 - `context`, if provided, must be one of the documented allowed values, otherwise `INVALID_CONTEXT`.
 
-**Success Response** (`200`): A single-analysis report matching [report-schema.md](report-schema.md), `mode: "single"`, `status: "partial_success"` (deterministic metrics complete; LLM/UIClip are disabled placeholders — see the Phase 2B-2 status note above). The `lucidui` section reflects the deterministic metric engine's real output, including its own field names exactly as documented in [docs/metrics/metric-catalog.md](../metrics/metric-catalog.md) — note the current [examples/single-analysis-response.json](examples/single-analysis-response.json) predates this implementation and does not yet match it field-for-field; treat the live API and [report-schema.md](report-schema.md)'s status/field descriptions as authoritative until that example is regenerated. `207` (partial success as an HTTP status) is not currently used — partial success is signaled via the `status` field at `200`, not the HTTP status code.
+**Success Response** (`200`): A single-analysis report matching [report-schema.md](report-schema.md), `mode: "single"`, `status: "partial_success"` (deterministic metrics and, by default, LLM interpretation complete; UIClip is a disabled placeholder — see the Phase 3 status note above). The `lucidui` section reflects the deterministic metric engine's real output, including its own field names exactly as documented in [docs/metrics/metric-catalog.md](../metrics/metric-catalog.md) — note the current [examples/single-analysis-response.json](examples/single-analysis-response.json) predates this implementation and does not yet match it field-for-field; treat the live API and [report-schema.md](report-schema.md)'s status/field descriptions as authoritative until that example is regenerated. `207` (partial success as an HTTP status) is not currently used — partial success is signaled via the `status` field at `200`, not the HTTP status code.
 
 **Error Responses**: `UNSUPPORTED_MEDIA_TYPE` (415), `FILE_TOO_LARGE` (413), `INVALID_IMAGE` (422), `INVALID_CONTEXT` (422), `ANALYSIS_FAILED` (500), `INTERNAL_ERROR` (500). See [error-codes.md](error-codes.md).
 
@@ -103,7 +103,15 @@ Field names use `camelCase` for consistency with the rest of this JSON API (this
 
 ---
 
-## Current Implementation Notes (Phase 2B-2)
+## LLM Interpretation
+
+`llmInterpretation` is populated by `app.llm.LLMInterpretationService` (see ROADMAP.md Phase 3). It is an **interpreter only**: it receives exclusively the deterministic `lucidui` JSON and the analysis `context` — never the uploaded image, raw bytes, or a screenshot in any form (see [docs/architecture/decisions/ADR-003-json-only-llm-input.md](../architecture/decisions/ADR-003-json-only-llm-input.md)). It never computes a metric, never invents evidence not present in that JSON, and every observation must cite at least one metric path as evidence.
+
+- **Provider selection** is configuration-driven (`LLM_PROVIDER` env var; see `backend/.env.example`), not hardcoded. `mock` (default) is a deterministic, offline provider — no API key, no network call, always returns `status: "completed"` with `provider: "mock"`. `gemini` uses a real Google Gemini model via the official `google-genai` SDK, requiring `GEMINI_API_KEY`.
+- **`runLlm`** (request field, default `true`) controls whether this stage runs at all for a given analysis: `false` → `llmInterpretation.status: "disabled"`, matching the status catalog in [report-schema.md](report-schema.md#llm-statuses-llminterpretationstatus).
+- **Failure handling**: if no provider is configured (e.g. `gemini` selected without a key), or the provider cannot be reached, `status` becomes `"unavailable"`. If the provider responds but the response is malformed, fails schema validation, or is missing metric evidence, `status` becomes `"failed"`. In both cases the rest of the report (deterministic metrics, image metadata, etc.) is still returned and persisted — an LLM failure never discards the deterministic analysis, and never surfaces as a top-level HTTP error (`llmInterpretation.status` carries the detail instead).
+
+## Current Implementation Notes (Phase 3)
 
 - `image_metadata` in a live report uses the real decoded-image fields: `width`, `height`, `format` (`jpeg`/`png`/`webp`), `aspectRatio`, `orientation` (`landscape`/`portrait`/`square`), `fileSizeBytes` — not the illustrative `fileName`/`widthPx`/`heightPx`/`colorMode` shape shown in [examples/single-analysis-response.json](examples/single-analysis-response.json), which predates this implementation.
 - `analysisId` **is now persisted**: a report returned by `POST /analyses/single` can immediately be retrieved via `GET /api/v1/analyses/{analysisId}` and `/raw` (both return the identical stored report — there is no separate raw payload beyond what `lucidui.raw` already carries).

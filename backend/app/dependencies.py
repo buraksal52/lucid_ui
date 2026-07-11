@@ -4,10 +4,11 @@
 instance of each is reused across requests within a process, per the Phase 1
 requirement that the repository be shared rather than recreated per call —
 the same reasoning applies to the (stateless but non-trivial to construct)
-image validator/decoder/metric engine.
+image validator/decoder/metric engine/LLM provider.
 
 As of Phase 2B-2, `get_metric_engine` is injected into `get_analysis_service`
-so `POST /analyses/single` runs real deterministic metrics — see ROADMAP.md.
+so `POST /analyses/single` runs real deterministic metrics. As of Phase 3,
+`get_llm_interpretation_service` is injected too — see ROADMAP.md.
 """
 
 from functools import lru_cache
@@ -16,6 +17,10 @@ from app.config import get_settings
 from app.images.decoder import ImageDecoder
 from app.images.metadata import ImageMetadataExtractor
 from app.images.validator import ImageValidator
+from app.llm.gemini_provider import GeminiLLMProvider
+from app.llm.mock_provider import MockLLMProvider
+from app.llm.provider import LLMProvider
+from app.llm.service import LLMInterpretationService
 from app.metrics.engine import MetricEngine
 from app.repositories.base import AnalysisRepository
 from app.repositories.in_memory import InMemoryAnalysisRepository
@@ -48,10 +53,39 @@ def get_metric_engine() -> MetricEngine:
     return MetricEngine()
 
 
+@lru_cache
+def get_llm_provider() -> LLMProvider | None:
+    """Selects the configured LLM provider.
+
+    Defaults to the offline `MockLLMProvider` (no API key required). Only
+    returns `GeminiLLMProvider` when `llm_provider == "gemini"` *and* an API
+    key is actually configured; otherwise returns `None` so
+    `LLMInterpretationService` reports `llmInterpretation.status =
+    "unavailable"` instead of raising at startup.
+    """
+    settings = get_settings()
+    if settings.llm_provider == "gemini":
+        if not settings.gemini_api_key:
+            return None
+        return GeminiLLMProvider(
+            api_key=settings.gemini_api_key,
+            model=settings.gemini_model,
+            max_output_tokens=settings.llm_max_output_tokens,
+        )
+    return MockLLMProvider()
+
+
+@lru_cache
+def get_llm_interpretation_service() -> LLMInterpretationService:
+    settings = get_settings()
+    return LLMInterpretationService(provider=get_llm_provider(), provider_name=settings.llm_provider)
+
+
 def get_analysis_service() -> AnalysisService:
     return AnalysisService(
         repository=get_repository(),
         image_validator=get_image_validator(),
         image_decoder=get_image_decoder(),
         metric_engine=get_metric_engine(),
+        llm_service=get_llm_interpretation_service(),
     )

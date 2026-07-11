@@ -1,13 +1,14 @@
 """Use-case coordinator for analyses.
 
-Phase 2B-2: validates and decodes an uploaded image, runs the deterministic
-`MetricEngine` against it exactly once, assembles a full `AnalysisReport`,
-and persists it. LLM interpretation and UIClip evaluation don't exist yet
-(Phase 3+), so their report sections use the project's existing
-`disabled`/`unavailable` status design rather than fabricated data — see
-docs/api/report-schema.md. Routes must only parse input and call this
-service; all orchestration logic lives here, per CLAUDE.md ("Do not put
-business logic inside FastAPI route functions").
+Validates and decodes an uploaded image, runs the deterministic
+`MetricEngine` against it exactly once, interprets that result with
+`LLMInterpretationService`, assembles a full `AnalysisReport`, and persists
+it. UIClip evaluation doesn't exist yet (Phase 4+), so `uiclip`/`comparison`
+still use the project's existing `disabled`/`unavailable` status design
+rather than fabricated data — see docs/api/report-schema.md. Routes must
+only parse input and call this service; all orchestration logic lives here,
+per CLAUDE.md ("Do not put business logic inside FastAPI route functions").
+Prompt construction and LLM-provider calls live in `app.llm`, never here.
 """
 
 import time
@@ -17,6 +18,7 @@ from app.core.exceptions import AnalysisNotFoundError, InvalidContextError
 from app.core.logging import get_logger
 from app.images.decoder import ImageDecoder
 from app.images.validator import ImageValidator
+from app.llm.service import LLMInterpretationService
 from app.metrics.engine import MetricEngine
 from app.metrics.models import DeterministicMetricResult
 from app.repositories.base import AnalysisRepository
@@ -30,13 +32,13 @@ logger = get_logger("lucidui.analysis")
 
 _NOTE = (
     "These results are design signals for review, not objective verdicts. "
-    "LLM interpretation and UIClip evaluation are not yet implemented (see ROADMAP.md)."
+    "UIClip evaluation is not yet implemented (see ROADMAP.md)."
 )
 
 
 class AnalysisService:
     """Coordinates single-analysis creation (validate -> decode -> metrics ->
-    persist) and report retrieval."""
+    LLM interpretation -> persist) and report retrieval."""
 
     def __init__(
         self,
@@ -44,17 +46,20 @@ class AnalysisService:
         image_validator: ImageValidator,
         image_decoder: ImageDecoder,
         metric_engine: MetricEngine,
+        llm_service: LLMInterpretationService,
     ) -> None:
         self._repository = repository
         self._image_validator = image_validator
         self._image_decoder = image_decoder
         self._metric_engine = metric_engine
+        self._llm_service = llm_service
 
     def create_single_analysis(
         self,
         data: bytes,
         content_type: str | None,
         context: str,
+        run_llm: bool = True,
     ) -> AnalysisReport:
         context_enum = self._validate_context(context)
         start = time.monotonic()
@@ -66,11 +71,19 @@ class AnalysisService:
         metric_result = self._metric_engine.analyze(decoded, context_enum)
         lucidui_ms = round((time.monotonic() - metrics_start) * 1000)
 
+        if run_llm:
+            llm_start = time.monotonic()
+            llm_result = self._llm_service.interpret(metric_result, context_enum)
+            llm_ms = round((time.monotonic() - llm_start) * 1000)
+        else:
+            llm_result = self._build_disabled_llm_result()
+            llm_ms = 0
+
         analysis_id = str(uuid.uuid4())
         timings = TimingResult(
             total_ms=round((time.monotonic() - start) * 1000),
             lucidui_ms=lucidui_ms,
-            llm_ms=0,
+            llm_ms=llm_ms,
             uiclip_ms=0,
             comparison_ms=0,
         )
@@ -81,7 +94,7 @@ class AnalysisService:
             status=AnalysisStatus.PARTIAL_SUCCESS,
             image_metadata=decoded.metadata,
             lucidui=metric_result,
-            llm_interpretation=self._build_disabled_llm_result(),
+            llm_interpretation=llm_result,
             uiclip=self._build_disabled_uiclip_result(),
             comparison=self._build_unavailable_comparison_result(metric_result),
             timings=timings,
@@ -90,11 +103,12 @@ class AnalysisService:
 
         self._repository.save(report)
         logger.info(
-            "Created analysis %s (context=%s, status=%s, weightedScore=%s)",
+            "Created analysis %s (context=%s, status=%s, weightedScore=%s, llmStatus=%s)",
             analysis_id,
             context_enum.value,
             report.status.value,
             metric_result.weighted_score,
+            llm_result.status.value,
         )
         return report
 

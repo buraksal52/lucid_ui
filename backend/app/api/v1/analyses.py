@@ -1,13 +1,14 @@
 """Analysis endpoints.
 
-Phase 2B-2: `/analyses/single` accepts a multipart image upload, validates
-and decodes it in memory, runs the deterministic metric engine, persists the
-resulting `AnalysisReport`, and returns it. LLM interpretation and UIClip
-evaluation don't exist yet, so their report sections are `disabled`/
-`unavailable` placeholders, not fabricated results (see AnalysisService).
-`/analyses/variants` remains out of scope until Phase 7. Routes here only
-parse input and delegate to AnalysisService; all business logic lives in the
-service/images/metrics layers per CLAUDE.md.
+`/analyses/single` accepts a multipart image upload, validates and decodes
+it in memory, runs the deterministic metric engine, interprets the result
+with the LLM interpretation layer (unless `runLlm=false`), persists the
+resulting `AnalysisReport`, and returns it. UIClip evaluation doesn't exist
+yet, so `uiclip`/`comparison` remain `disabled`/`unavailable` placeholders,
+not fabricated results (see AnalysisService). `/analyses/variants` remains
+out of scope until Phase 7. Routes here only parse input and delegate to
+AnalysisService; all business logic lives in the service/images/metrics/llm
+layers per CLAUDE.md.
 """
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
@@ -34,6 +35,7 @@ async def create_single_analysis(
         data=data,
         content_type=image.content_type,
         context=context,
+        run_llm=run_llm,
     )
 
 

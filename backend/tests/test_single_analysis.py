@@ -80,15 +80,18 @@ def test_explicit_expert_context_succeeds(client: TestClient, valid_png_bytes: b
     assert response.json()["context"] == "expert"
 
 
-def test_description_and_flags_are_accepted_and_do_not_break_the_request(
+def test_description_and_run_uiclip_are_accepted_but_have_no_effect(
     client: TestClient, valid_png_bytes: bytes
 ) -> None:
     response = client.post(
         ENDPOINT,
         files={"image": ("shot.png", valid_png_bytes, "image/png")},
-        data={"description": "A dashboard", "runLlm": "false", "runUiclip": "false"},
+        data={"description": "A dashboard", "runUiclip": "false"},
     )
     assert response.status_code == 200
+    body = response.json()
+    # UIClip does not exist yet regardless of runUiclip's value
+    assert body["uiclip"]["status"] == "disabled"
 
 
 def test_metric_engine_output_is_embedded_in_the_report(client: TestClient, valid_png_bytes: bytes) -> None:
@@ -108,15 +111,42 @@ def test_metric_engine_output_is_embedded_in_the_report(client: TestClient, vali
     assert isinstance(lucidui["weightedScore"], float)
 
 
-def test_llm_and_uiclip_sections_are_disabled_placeholders(client: TestClient, valid_png_bytes: bytes) -> None:
+def test_uiclip_and_comparison_sections_are_placeholders(client: TestClient, valid_png_bytes: bytes) -> None:
     response = client.post(ENDPOINT, files={"image": ("shot.png", valid_png_bytes, "image/png")})
     body = response.json()
-    assert body["llmInterpretation"]["status"] == "disabled"
-    assert body["llmInterpretation"]["observations"] == []
     assert body["uiclip"]["enabled"] is False
     assert body["uiclip"]["status"] == "disabled"
     assert body["comparison"]["agreementLevel"] == "unavailable"
     assert body["comparison"]["luciduiWeightedScore"] == body["lucidui"]["weightedScore"]
+
+
+def test_llm_interpretation_completes_by_default_via_mock_provider(
+    client: TestClient, valid_png_bytes: bytes
+) -> None:
+    response = client.post(ENDPOINT, files={"image": ("shot.png", valid_png_bytes, "image/png")})
+    body = response.json()
+    llm = body["llmInterpretation"]
+    assert llm["status"] == "completed"
+    assert llm["provider"] == "mock"
+    assert llm["summary"] is not None
+    assert len(llm["observations"]) > 0
+    for observation in llm["observations"]:
+        assert len(observation["metricEvidence"]) > 0
+
+
+def test_run_llm_false_disables_llm_interpretation(client: TestClient, valid_png_bytes: bytes) -> None:
+    response = client.post(
+        ENDPOINT,
+        files={"image": ("shot.png", valid_png_bytes, "image/png")},
+        data={"runLlm": "false"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    llm = body["llmInterpretation"]
+    assert llm["status"] == "disabled"
+    assert llm["provider"] is None
+    assert llm["summary"] is None
+    assert llm["observations"] == []
 
 
 def test_metric_engine_runs_exactly_once_per_upload(

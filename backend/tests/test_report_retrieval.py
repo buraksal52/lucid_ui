@@ -1,8 +1,8 @@
 """Retrieval tests for GET /analyses/{id} and /analyses/{id}/raw.
 
-As of Phase 2B-2, `POST /analyses/single` runs the deterministic metric
-engine and persists a full `AnalysisReport`, so these endpoints have real
-data to retrieve — see AnalysisService.create_single_analysis.
+`POST /analyses/single` runs the deterministic metric engine and LLM
+interpretation, and persists a full `AnalysisReport`, so these endpoints
+have real data to retrieve — see AnalysisService.create_single_analysis.
 """
 
 import pytest
@@ -40,6 +40,21 @@ def test_retrieved_report_contains_real_metric_output(client: TestClient, valid_
     assert body["lucidui"]["metricEngineVersion"] == "legacy-v1"
     assert isinstance(body["lucidui"]["weightedScore"], float)
     assert body["status"] == "partial_success"
+
+
+def test_llm_interpretation_is_persisted_and_retrievable(client: TestClient, valid_png_bytes: bytes) -> None:
+    created = client.post(CREATE_ENDPOINT, files={"image": ("shot.png", valid_png_bytes, "image/png")}).json()
+    analysis_id = created["analysisId"]
+    assert created["llmInterpretation"]["status"] == "completed"
+
+    response = client.get(f"/api/v1/analyses/{analysis_id}")
+    body = response.json()
+    assert body["llmInterpretation"] == created["llmInterpretation"]
+    assert body["llmInterpretation"]["status"] == "completed"
+    assert body["llmInterpretation"]["provider"] == "mock"
+
+    raw_response = client.get(f"/api/v1/analyses/{analysis_id}/raw")
+    assert raw_response.json()["llmInterpretation"] == created["llmInterpretation"]
 
 
 def test_unknown_analysis_id_returns_404(client: TestClient) -> None:

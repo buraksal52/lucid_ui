@@ -15,3 +15,7 @@ python-multipart>=0.0.9,<1.0
 # to actually run. Importing pytesseract and unit-testing app/metrics/ do
 # not require the binary — tests mock pytesseract.image_to_data.
 pytesseract>=0.3.10,<1.0
+# google-genai is only actually called when LLM_PROVIDER=gemini and
+# GEMINI_API_KEY is set (app.llm.gemini_provider); the default "mock"
+# provider and the full test suite never make a network call.
+google-genai>=1.0,<2.0

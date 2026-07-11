@@ -36,9 +36,11 @@ LLM Interpretation
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full architectural explanation.
 
-## Current Project Status: Phase 2B-2
+## Current Project Status: Phase 3
 
-Phase 0 (documentation and architecture foundation), Phase 1 (FastAPI foundation), Phase 2A (image processing infrastructure), and Phase 2B (the deterministic metric engine, in two sub-phases) are complete. `POST /api/v1/analyses/single` now runs the full deterministic pipeline: validate → decode → `MetricEngine.analyze()` (real legacy metrics, OCR included) → persist → return a full `AnalysisReport`. `GET /api/v1/analyses/{id}` and `/raw` now return real, previously-computed reports. `llmInterpretation` and `uiclip` sections are present but `disabled` placeholders — no LLM or UIClip integration exists yet — and `comparison.agreementLevel` is `unavailable` accordingly. OCR uses `pytesseract`, which requires the external `tesseract` binary to be installed on the host at runtime (not required for the test suite, which mocks OCR). See [ROADMAP.md](ROADMAP.md) for the full phased plan. The frontend is still not implemented.
+Phase 0 (documentation and architecture foundation), Phase 1 (FastAPI foundation), Phase 2A (image processing infrastructure), Phase 2B (the deterministic metric engine), and a first version of Phase 3 (LLM interpretation) are complete. `POST /api/v1/analyses/single` now runs the full pipeline: validate → decode → `MetricEngine.analyze()` (real legacy metrics, OCR included) → `LLMInterpretationService.interpret()` (real, deterministic-metric-grounded natural-language interpretation) → persist → return a full `AnalysisReport`. `GET /api/v1/analyses/{id}` and `/raw` return real, previously-computed reports, including the LLM interpretation.
+
+The LLM is an **interpreter only** — it never computes metrics, never invents evidence, and never receives the uploaded image or any screenshot; only the already-JSON-safe deterministic metric output and the analysis context (`general`/`expert`). It defaults to a deterministic, offline `MockLLMProvider` (no API key needed); setting `LLM_PROVIDER=gemini` plus `GEMINI_API_KEY` switches to a real Google Gemini provider. If the LLM fails or is unavailable for any reason, the deterministic analysis is still returned — `llmInterpretation.status` becomes `unavailable`/`failed` rather than discarding the rest of the report. `uiclip` is still a `disabled` placeholder — no UIClip integration exists yet — and `comparison.agreementLevel` is `unavailable` accordingly. OCR uses `pytesseract`, which requires the external `tesseract` binary to be installed on the host at runtime (not required for the test suite, which mocks both OCR and the LLM provider). See [ROADMAP.md](ROADMAP.md) for the full phased plan. The frontend is still not implemented.
 
 ## Planned Features
 
@@ -58,9 +60,9 @@ Phase 0 (documentation and architecture foundation), Phase 1 (FastAPI foundation
 
 See [docs/architecture/privacy-model.md](docs/architecture/privacy-model.md) for the full model.
 
-## Local Setup (Backend, Phase 2B-2)
+## Local Setup (Backend, Phase 3)
 
-The backend is a FastAPI application under `backend/`. `POST /api/v1/analyses/single` accepts an uploaded image, decodes it, runs the real deterministic metric engine (`app.metrics.MetricEngine`) against it, persists the resulting report, and returns it. LLM interpretation and UIClip evaluation are not implemented yet — their report sections are `disabled` placeholders.
+The backend is a FastAPI application under `backend/`. `POST /api/v1/analyses/single` accepts an uploaded image, decodes it, runs the real deterministic metric engine (`app.metrics.MetricEngine`), interprets the result with `app.llm.LLMInterpretationService`, persists the resulting report, and returns it. UIClip evaluation is not implemented yet — its report section is a `disabled` placeholder.
 
 ```bash
 cd backend
@@ -71,7 +73,9 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-**External dependency**: the metric engine's OCR stage uses `pytesseract`, a thin Python wrapper around the `tesseract` command-line binary. `pip install -r requirements.txt` installs the Python wrapper only — the `tesseract` binary itself must be installed separately on the host (e.g. `brew install tesseract` on macOS, `apt-get install tesseract-ocr` on Debian/Ubuntu) before OCR calls will actually run. It is not required to run the test suite, which mocks `pytesseract.image_to_data`.
+**External dependency (OCR)**: the metric engine's OCR stage uses `pytesseract`, a thin Python wrapper around the `tesseract` command-line binary. `pip install -r requirements.txt` installs the Python wrapper only — the `tesseract` binary itself must be installed separately on the host (e.g. `brew install tesseract` on macOS, `apt-get install tesseract-ocr` on Debian/Ubuntu) before OCR calls will actually run. It is not required to run the test suite, which mocks `pytesseract.image_to_data`.
+
+**LLM configuration**: `LLM_PROVIDER` defaults to `mock` — a deterministic, offline provider that needs no API key and never makes a network call, so the app and test suite run out of the box. Set `LLM_PROVIDER=gemini` and `GEMINI_API_KEY=<your key>` (see `.env.example`) to use a real Google Gemini model instead; if `gemini` is selected without a key, LLM interpretation reports `unavailable` rather than failing the request. Screenshots are never sent to any LLM provider — only deterministic metric JSON and the analysis context.
 
 Once running:
 
@@ -97,7 +101,7 @@ lucidui/
 ├── ROADMAP.md              Phased development plan
 ├── ARCHITECTURE.md         Architecture overview
 │
-├── backend/                FastAPI application (Phase 2B-2 — full deterministic analysis pipeline, no LLM/UIClip yet)
+├── backend/                FastAPI application (Phase 3 — deterministic analysis + LLM interpretation; no UIClip yet)
 ├── frontend/                (empty — not implemented yet)
 ├── samples/                 (empty — reserved for sample screenshots)
 │
@@ -128,4 +132,4 @@ See [ROADMAP.md](ROADMAP.md) for the complete list. In short: Phase 0 (documenta
 
 ## Status Note
 
-The backend (`backend/`) is runnable. Phase 1 delivered the FastAPI foundation: routing, configuration, structured errors, and an in-memory repository. Phase 2A added real image upload: `POST /api/v1/analyses/single` validates (MIME type, size, corruption) and decodes an uploaded JPEG/PNG/WebP entirely in memory — never written to disk. Phase 2B-1 added `app.metrics.MetricEngine`, a production-facing adapter around the validated legacy deterministic metric engine (`backend/reference/legacy_metric_engine.py`, immutable — see [CLAUDE.md](CLAUDE.md)), covered by regression-equivalence tests. Phase 2B-2 connected the two: the endpoint now runs `MetricEngine` once per upload and returns a full `AnalysisReport`, persisted in the in-memory repository and retrievable via `GET /api/v1/analyses/{id}` and `/raw`. Real LLM interpretation and real UIClip inference are not implemented yet — those report sections are `disabled` placeholders, and `comparison.agreementLevel` is `unavailable` accordingly (see [ROADMAP.md](ROADMAP.md)). The frontend (`frontend/`) is still not implemented.
+The backend (`backend/`) is runnable. Phase 1 delivered the FastAPI foundation: routing, configuration, structured errors, and an in-memory repository. Phase 2A added real image upload: `POST /api/v1/analyses/single` validates (MIME type, size, corruption) and decodes an uploaded JPEG/PNG/WebP entirely in memory — never written to disk. Phase 2B added `app.metrics.MetricEngine`, a production-facing adapter around the validated legacy deterministic metric engine (`backend/reference/legacy_metric_engine.py`, immutable — see [CLAUDE.md](CLAUDE.md)), wired into the endpoint and covered by regression-equivalence tests. Phase 3 added `app.llm.LLMInterpretationService`: it builds a JSON-only prompt from the deterministic metric result (never the image), calls a configured `LLMProvider` (mock by default, real Gemini when configured), validates the structured response (including a metric-evidence check), and populates `AnalysisReport.llmInterpretation`. Any LLM failure degrades gracefully — the deterministic report is always returned regardless. Real UIClip inference is not implemented yet — that report section is a `disabled` placeholder, and `comparison.agreementLevel` is `unavailable` accordingly (see [ROADMAP.md](ROADMAP.md)). The frontend (`frontend/`) is still not implemented.
