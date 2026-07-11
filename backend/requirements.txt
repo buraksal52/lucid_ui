@@ -9,3 +9,9 @@ opencv-python-headless>=4.9,<5.0
 numpy>=1.26,<3.0
 Pillow>=10.2,<12.0
 python-multipart>=0.0.9,<1.0
+# pytesseract is a thin wrapper around the external `tesseract` binary, which
+# is NOT installed by pip and must be present on the host separately (e.g.
+# `brew install tesseract` / `apt-get install tesseract-ocr`) for OCR calls
+# to actually run. Importing pytesseract and unit-testing app/metrics/ do
+# not require the binary — tests mock pytesseract.image_to_data.
+pytesseract>=0.3.10,<1.0

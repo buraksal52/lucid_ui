@@ -44,3 +44,7 @@ The weights, normalization ranges, and thresholds used to compute the composite 
 ## Preserving Raw Values
 
 Regardless of scoring ruleset changes, raw metric values must always be preserved in the report output. Normalization and weighting are derived, replayable transformations of the raw values — never a replacement for them. This is required both for explainability (see [CLAUDE.md](../../CLAUDE.md)) and for future research recomputation (see [docs/research/evaluation-plan.md](../research/evaluation-plan.md)).
+
+## Implementation Status: `metricEngineVersion`
+
+As of Phase 2B-1, the scoring ruleset described above (weights, normalization bounds, thresholds) is implemented exactly as originally validated in `backend/reference/legacy_metric_engine.py` (immutable — see [CLAUDE.md](../../CLAUDE.md)), wrapped by a production-facing adapter (`app.metrics.MetricEngine`) that runs it against an in-memory decoded image instead of a file path. Every report produced by this ruleset carries `metricEngineVersion: "legacy-v1"`, so a report can always be traced back to the exact formulas and weights that produced it, per the versioning requirement above. This adapter is callable directly from Python but is **not yet connected to the FastAPI analysis endpoint** — see [ROADMAP.md](../../ROADMAP.md) Phase 2B-2.

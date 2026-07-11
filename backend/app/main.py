@@ -36,8 +36,8 @@ def create_app() -> FastAPI:
         version=settings.app_version,
         description=(
             "LucidUI backend: deterministic UI analysis, LLM interpretation, and "
-            "UIClip comparison. Phase 1 — analysis responses are mocked; no real "
-            "image processing, LLM, or UIClip integration yet."
+            "UIClip comparison. Deterministic metrics are real (see app.metrics); "
+            "LLM interpretation and UIClip integration do not exist yet."
         ),
         docs_url="/docs",
         openapi_url="/openapi.json",

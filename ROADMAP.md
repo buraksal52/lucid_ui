@@ -34,12 +34,20 @@ This roadmap defines the phased development plan for LucidUI. Each phase must be
 - [x] Image metadata
 - [x] Tests
 
-### Phase 2B — Deterministic Metric Engine (not started)
+### Phase 2B — Deterministic Metric Engine (complete)
 
-- [ ] Legacy metric adapter
-- [ ] JSON-safe serialization
-- [ ] Weighted signal score
-- [ ] Tests
+#### Phase 2B-1 — Legacy Metric Engine Adapter (complete)
+
+- [x] Legacy metric adapter (`app.metrics.MetricEngine`, callable from Python; not yet wired into the API)
+- [x] JSON-safe serialization
+- [x] Weighted signal score
+- [x] Tests (including legacy regression-equivalence)
+
+#### Phase 2B-2 — API Integration (complete)
+
+- [x] Connect `MetricEngine` to `POST /api/v1/analyses/single` (via `AnalysisService`, injected through `get_metric_engine()`)
+- [x] Persist deterministic metric reports (`AnalysisRepository.save()`, exercised for the first time)
+- [x] Update the endpoint's success response to the full report shape (`AnalysisReport`, replacing Phase 2A's temporary `AnalysisAcceptedResponse`)
 
 ## Phase 3 — LLM Interpretation Layer
 

@@ -4,16 +4,21 @@ Clears the cached in-memory repository between tests so analyses created in
 one test don't leak into another, since `get_repository` is process-cached
 via `lru_cache` for reuse across real requests. Also provides small
 in-memory-generated image byte fixtures (PNG/JPEG/WEBP) so image-upload
-tests need no external sample files and no network access.
+tests need no external sample files and no network access, plus a
+deterministic decoded image + mocked OCR dictionary for
+app/metrics/ tests (no external Tesseract binary required).
 """
 
 import io
 
+import numpy as np
 import pytest
+import pytesseract
 from fastapi.testclient import TestClient
 from PIL import Image
 
 from app.dependencies import get_repository
+from app.images.models import DecodedImage, ImageMetadata
 from app.main import app
 
 
@@ -55,3 +60,69 @@ def corrupted_png_bytes(valid_png_bytes: bytes) -> bytes:
 def mismatched_signature_bytes() -> bytes:
     """Bytes with no recognizable image file signature at all."""
     return b"not-an-image-" + b"\x00" * 32
+
+
+@pytest.fixture
+def deterministic_cv_image() -> np.ndarray:
+    """A fixed, uniformly light-gray 800x600 BGR canvas.
+
+    A solid light background (>200 gray) means `analyze_elements`'s contour
+    pass (threshold at 200, THRESH_BINARY_INV) finds zero contours, so every
+    detected "element" comes solely from the mocked OCR fixture below —
+    keeping metric-engine tests fully deterministic and independent of any
+    image-content heuristics.
+    """
+    return np.full((600, 800, 3), 245, dtype=np.uint8)
+
+
+@pytest.fixture
+def mock_ocr_data() -> dict:
+    """Deterministic pytesseract.image_to_data()-shaped OCR fixture.
+
+    Covers: valid boxes above confidence 60 (indices 0, 1, 4, 5), one box
+    below confidence 60 (index 2), one empty text value (index 3), multiple
+    positions/sizes, and every valid box is smaller than 44px tall (small
+    touch-target case). Four valid, well-separated elements are enough to
+    exercise both grouping and Fitts's Law pairwise-distance calculations.
+    """
+    return {
+        "text": ["Dashboard", "Settings", "ok", "", "Profile", "Save"],
+        "conf": [95, 92, 40, 88, 85, 90],
+        "left": [10, 200, 400, 20, 10, 600],
+        "top": [10, 10, 10, 100, 300, 300],
+        "width": [90, 70, 30, 40, 60, 40],
+        "height": [20, 20, 20, 20, 20, 20],
+    }
+
+
+@pytest.fixture
+def mock_ocr(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Patches `pytesseract.image_to_data` with an empty OCR result.
+
+    For API-level tests (via `TestClient`) that upload a real image and so
+    reach `MetricEngine` through the live request path — keeps them hermetic
+    per CLAUDE.md ("Tests must not require ... OCR"). Metric-value-accurate
+    OCR fixtures belong in test_metric_engine.py; these tests only care that
+    the request completes without needing the real Tesseract binary.
+    """
+    empty_ocr_data = {"text": [], "conf": [], "left": [], "top": [], "width": [], "height": []}
+    monkeypatch.setattr(pytesseract, "image_to_data", lambda *args, **kwargs: empty_ocr_data)
+
+
+@pytest.fixture
+def decoded_image(deterministic_cv_image: np.ndarray) -> DecodedImage:
+    pil_image = Image.fromarray(deterministic_cv_image[:, :, ::-1])  # BGR -> RGB
+    metadata = ImageMetadata(
+        width=800,
+        height=600,
+        format="png",
+        aspect_ratio=800 / 600,
+        orientation="landscape",
+        file_size_bytes=0,
+    )
+    return DecodedImage(
+        raw_bytes=b"",
+        cv2_image=deterministic_cv_image,
+        pil_image=pil_image,
+        metadata=metadata,
+    )

@@ -1,13 +1,45 @@
 """Retrieval tests for GET /analyses/{id} and /analyses/{id}/raw.
 
-Phase 2A's `/analyses/single` no longer produces a persisted `AnalysisReport`
-(see docs/api/api-contract.md) — it returns a temporary "accepted" response
-and does not run analysis, so there is nothing yet to store or retrieve.
-These endpoints are otherwise unchanged from Phase 1; a full report becomes
-retrievable again once Phase 2B's pipeline populates the repository.
+As of Phase 2B-2, `POST /analyses/single` runs the deterministic metric
+engine and persists a full `AnalysisReport`, so these endpoints have real
+data to retrieve — see AnalysisService.create_single_analysis.
 """
 
+import pytest
 from fastapi.testclient import TestClient
+
+CREATE_ENDPOINT = "/api/v1/analyses/single"
+
+pytestmark = pytest.mark.usefixtures("mock_ocr")
+
+
+def test_created_analysis_can_be_retrieved(client: TestClient, valid_png_bytes: bytes) -> None:
+    created = client.post(CREATE_ENDPOINT, files={"image": ("shot.png", valid_png_bytes, "image/png")}).json()
+    analysis_id = created["analysisId"]
+
+    response = client.get(f"/api/v1/analyses/{analysis_id}")
+    assert response.status_code == 200
+    assert response.json() == created
+
+
+def test_raw_returns_same_report(client: TestClient, valid_png_bytes: bytes) -> None:
+    created = client.post(CREATE_ENDPOINT, files={"image": ("shot.png", valid_png_bytes, "image/png")}).json()
+    analysis_id = created["analysisId"]
+
+    response = client.get(f"/api/v1/analyses/{analysis_id}/raw")
+    assert response.status_code == 200
+    assert response.json() == created
+
+
+def test_retrieved_report_contains_real_metric_output(client: TestClient, valid_png_bytes: bytes) -> None:
+    created = client.post(CREATE_ENDPOINT, files={"image": ("shot.png", valid_png_bytes, "image/png")}).json()
+    analysis_id = created["analysisId"]
+
+    response = client.get(f"/api/v1/analyses/{analysis_id}")
+    body = response.json()
+    assert body["lucidui"]["metricEngineVersion"] == "legacy-v1"
+    assert isinstance(body["lucidui"]["weightedScore"], float)
+    assert body["status"] == "partial_success"
 
 
 def test_unknown_analysis_id_returns_404(client: TestClient) -> None:

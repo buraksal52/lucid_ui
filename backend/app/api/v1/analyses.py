@@ -1,24 +1,26 @@
 """Analysis endpoints.
 
-Phase 2A: `/analyses/single` accepts a real multipart image upload, validates
-and decodes it in memory, and returns a temporary "accepted" response — no
-metric, LLM, or UIClip stage runs yet (Phase 2B+, see ROADMAP.md).
+Phase 2B-2: `/analyses/single` accepts a multipart image upload, validates
+and decodes it in memory, runs the deterministic metric engine, persists the
+resulting `AnalysisReport`, and returns it. LLM interpretation and UIClip
+evaluation don't exist yet, so their report sections are `disabled`/
+`unavailable` placeholders, not fabricated results (see AnalysisService).
 `/analyses/variants` remains out of scope until Phase 7. Routes here only
 parse input and delegate to AnalysisService; all business logic lives in the
-service/images layers per CLAUDE.md.
+service/images/metrics layers per CLAUDE.md.
 """
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 
 from app.dependencies import get_analysis_service
-from app.schemas.analysis import AnalysisAcceptedResponse, AnalysisReport
+from app.schemas.analysis import AnalysisReport
 from app.schemas.common import AnalysisContext
 from app.services.analysis_service import AnalysisService
 
 router = APIRouter()
 
 
-@router.post("/analyses/single", response_model=AnalysisAcceptedResponse)
+@router.post("/analyses/single", response_model=AnalysisReport)
 async def create_single_analysis(
     image: UploadFile = File(...),
     context: str = Form(default=AnalysisContext.GENERAL.value),
@@ -26,9 +28,9 @@ async def create_single_analysis(
     run_llm: bool = Form(default=True, alias="runLlm"),
     run_uiclip: bool = Form(default=True, alias="runUiclip"),
     service: AnalysisService = Depends(get_analysis_service),
-) -> AnalysisAcceptedResponse:
+) -> AnalysisReport:
     data = await image.read()
-    return service.accept_single_analysis_image(
+    return service.create_single_analysis(
         data=data,
         content_type=image.content_type,
         context=context,

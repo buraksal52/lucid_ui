@@ -36,9 +36,9 @@ LLM Interpretation
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full architectural explanation.
 
-## Current Project Status: Phase 2A
+## Current Project Status: Phase 2B-2
 
-Phase 0 (documentation and architecture foundation) and Phase 1 (FastAPI foundation) are complete. Phase 2A (image processing infrastructure) is also complete: `POST /api/v1/analyses/single` now accepts a real `multipart/form-data` image upload (JPEG, PNG, or WebP, max 20 MB), validates and decodes it entirely in memory (never written to disk), and returns a temporary "accepted" response with the decoded image's metadata. No deterministic metric, LLM, or UIClip stage runs yet — those land in Phase 2B onward. See [ROADMAP.md](ROADMAP.md) for the full phased plan. The frontend is still not implemented.
+Phase 0 (documentation and architecture foundation), Phase 1 (FastAPI foundation), Phase 2A (image processing infrastructure), and Phase 2B (the deterministic metric engine, in two sub-phases) are complete. `POST /api/v1/analyses/single` now runs the full deterministic pipeline: validate → decode → `MetricEngine.analyze()` (real legacy metrics, OCR included) → persist → return a full `AnalysisReport`. `GET /api/v1/analyses/{id}` and `/raw` now return real, previously-computed reports. `llmInterpretation` and `uiclip` sections are present but `disabled` placeholders — no LLM or UIClip integration exists yet — and `comparison.agreementLevel` is `unavailable` accordingly. OCR uses `pytesseract`, which requires the external `tesseract` binary to be installed on the host at runtime (not required for the test suite, which mocks OCR). See [ROADMAP.md](ROADMAP.md) for the full phased plan. The frontend is still not implemented.
 
 ## Planned Features
 
@@ -58,9 +58,9 @@ Phase 0 (documentation and architecture foundation) and Phase 1 (FastAPI foundat
 
 See [docs/architecture/privacy-model.md](docs/architecture/privacy-model.md) for the full model.
 
-## Local Setup (Backend, Phase 2A)
+## Local Setup (Backend, Phase 2B-2)
 
-The backend is a FastAPI application under `backend/`. As of Phase 2A, `POST /api/v1/analyses/single` accepts and decodes a real uploaded image, but does not yet run any analysis — no metric, LLM, or UIClip stage exists yet (Phase 2B onward).
+The backend is a FastAPI application under `backend/`. `POST /api/v1/analyses/single` accepts an uploaded image, decodes it, runs the real deterministic metric engine (`app.metrics.MetricEngine`) against it, persists the resulting report, and returns it. LLM interpretation and UIClip evaluation are not implemented yet — their report sections are `disabled` placeholders.
 
 ```bash
 cd backend
@@ -70,6 +70,8 @@ source .venv/bin/activate      # macOS/Linux
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
+
+**External dependency**: the metric engine's OCR stage uses `pytesseract`, a thin Python wrapper around the `tesseract` command-line binary. `pip install -r requirements.txt` installs the Python wrapper only — the `tesseract` binary itself must be installed separately on the host (e.g. `brew install tesseract` on macOS, `apt-get install tesseract-ocr` on Debian/Ubuntu) before OCR calls will actually run. It is not required to run the test suite, which mocks `pytesseract.image_to_data`.
 
 Once running:
 
@@ -95,7 +97,7 @@ lucidui/
 ├── ROADMAP.md              Phased development plan
 ├── ARCHITECTURE.md         Architecture overview
 │
-├── backend/                FastAPI application (Phase 2A — image upload and validation only)
+├── backend/                FastAPI application (Phase 2B-2 — full deterministic analysis pipeline, no LLM/UIClip yet)
 ├── frontend/                (empty — not implemented yet)
 ├── samples/                 (empty — reserved for sample screenshots)
 │
@@ -126,4 +128,4 @@ See [ROADMAP.md](ROADMAP.md) for the complete list. In short: Phase 0 (documenta
 
 ## Status Note
 
-The backend (`backend/`) is runnable. Phase 1 delivered the FastAPI foundation: routing, configuration, structured errors, and an in-memory repository. Phase 2A added real image upload: `POST /api/v1/analyses/single` now validates (MIME type, size, corruption) and decodes an uploaded JPEG/PNG/WebP entirely in memory — never written to disk — and returns its metadata (width, height, format, aspect ratio, orientation, file size). It does not yet perform real deterministic-metric analysis, real LLM interpretation, or real UIClip inference — those land in later phases (see [ROADMAP.md](ROADMAP.md)). The frontend (`frontend/`) is still not implemented.
+The backend (`backend/`) is runnable. Phase 1 delivered the FastAPI foundation: routing, configuration, structured errors, and an in-memory repository. Phase 2A added real image upload: `POST /api/v1/analyses/single` validates (MIME type, size, corruption) and decodes an uploaded JPEG/PNG/WebP entirely in memory — never written to disk. Phase 2B-1 added `app.metrics.MetricEngine`, a production-facing adapter around the validated legacy deterministic metric engine (`backend/reference/legacy_metric_engine.py`, immutable — see [CLAUDE.md](CLAUDE.md)), covered by regression-equivalence tests. Phase 2B-2 connected the two: the endpoint now runs `MetricEngine` once per upload and returns a full `AnalysisReport`, persisted in the in-memory repository and retrievable via `GET /api/v1/analyses/{id}` and `/raw`. Real LLM interpretation and real UIClip inference are not implemented yet — those report sections are `disabled` placeholders, and `comparison.agreementLevel` is `unavailable` accordingly (see [ROADMAP.md](ROADMAP.md)). The frontend (`frontend/`) is still not implemented.

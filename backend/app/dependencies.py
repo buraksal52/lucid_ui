@@ -4,7 +4,10 @@
 instance of each is reused across requests within a process, per the Phase 1
 requirement that the repository be shared rather than recreated per call —
 the same reasoning applies to the (stateless but non-trivial to construct)
-image validator/decoder.
+image validator/decoder/metric engine.
+
+As of Phase 2B-2, `get_metric_engine` is injected into `get_analysis_service`
+so `POST /analyses/single` runs real deterministic metrics — see ROADMAP.md.
 """
 
 from functools import lru_cache
@@ -13,6 +16,7 @@ from app.config import get_settings
 from app.images.decoder import ImageDecoder
 from app.images.metadata import ImageMetadataExtractor
 from app.images.validator import ImageValidator
+from app.metrics.engine import MetricEngine
 from app.repositories.base import AnalysisRepository
 from app.repositories.in_memory import InMemoryAnalysisRepository
 from app.services.analysis_service import AnalysisService
@@ -39,9 +43,15 @@ def get_image_validator() -> ImageValidator:
     return ImageValidator(max_size_bytes=settings.max_upload_size_bytes)
 
 
+@lru_cache
+def get_metric_engine() -> MetricEngine:
+    return MetricEngine()
+
+
 def get_analysis_service() -> AnalysisService:
     return AnalysisService(
         repository=get_repository(),
         image_validator=get_image_validator(),
         image_decoder=get_image_decoder(),
+        metric_engine=get_metric_engine(),
     )

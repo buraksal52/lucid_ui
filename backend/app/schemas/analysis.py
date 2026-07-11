@@ -1,39 +1,22 @@
 """Single-analysis request/response schemas.
 
-`AnalysisAcceptedResponse` is Phase 2A's temporary response for
-`POST /analyses/single`: the endpoint now accepts a real multipart image
-upload and validates/decodes it, but does not yet run any metric, LLM, or
-UIClip stage (those land in Phase 2B+), so it cannot return a full
-`AnalysisReport` yet. See docs/api/api-contract.md.
+`AnalysisReport` is the full report returned by `POST /analyses/single` and
+`GET /analyses/{id}` as of Phase 2B-2. `image_metadata` and `lucidui` reuse
+the real Phase 2A/2B-1 types directly (`app.images.models.ImageMetadata`,
+`app.metrics.models.DeterministicMetricResult`) rather than separate,
+independently-shaped schemas, so the report always reflects exactly what the
+image decoder and metric engine actually produced — no field is renamed or
+re-derived at this boundary. See docs/api/api-contract.md.
 """
-
-from typing import Literal
 
 from pydantic import Field
 
-from app.images.models import ImageMetadata as DecodedImageMetadata
+from app.images.models import ImageMetadata
+from app.metrics.models import DeterministicMetricResult
 from app.schemas.common import AnalysisContext, AnalysisMode, AnalysisStatus, CamelModel
 from app.schemas.comparison import ComparisonResult
 from app.schemas.llm import LLMInterpretationResult
-from app.schemas.metrics import LucidUIResult
 from app.schemas.uiclip import UIClipResult
-
-
-class AnalysisAcceptedResponse(CamelModel):
-    """Temporary Phase 2A response: the image was validated and decoded, but
-    no analysis has run yet."""
-
-    analysis_id: str
-    status: Literal["accepted"] = "accepted"
-    image_metadata: DecodedImageMetadata
-    message: str = Field(default="Image successfully validated and decoded.")
-
-
-class ImageMetadata(CamelModel):
-    width: int
-    height: int
-    format: str
-    size_bytes: int
 
 
 class TimingResult(CamelModel):
@@ -51,7 +34,7 @@ class AnalysisReport(CamelModel):
     context: AnalysisContext
     status: AnalysisStatus
     image_metadata: ImageMetadata
-    lucidui: LucidUIResult
+    lucidui: DeterministicMetricResult
     llm_interpretation: LLMInterpretationResult
     uiclip: UIClipResult
     comparison: ComparisonResult

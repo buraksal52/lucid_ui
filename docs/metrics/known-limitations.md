@@ -10,6 +10,10 @@ This document collects limitations that apply broadly across the LucidUI determi
 - **Fixed Canny thresholds**: edge detection uses fixed threshold parameters rather than per-image adaptive thresholds, which can under- or over-detect edges depending on image characteristics.
 - **Light-background assumptions**: some heuristics (e.g. whitespace detection) are tuned with common light-UI-background assumptions in mind and may behave differently on dark-mode or unusually themed interfaces.
 
+## Implementation Limitations
+
+- **Single shared OCR pass**: as of Phase 2B-1, `app.metrics.MetricEngine` runs Tesseract OCR exactly once per analysis and shares the resulting word/box data across contrast, element detection, and text density. This is an intentional performance choice (see [ROADMAP.md](../../ROADMAP.md) Phase 2B-1), but it also means a single OCR miss or false detection propagates into all three of those metrics simultaneously for that analysis, rather than affecting them independently.
+
 ## Scope Limitations
 
 - **Screenshot-only limitations**: LucidUI never has access to the live DOM, CSS, or application state — only a static raster image.
