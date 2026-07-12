@@ -46,6 +46,8 @@ UIClip is an **independent learned evaluator** — never ground truth, never mer
 
 OCR uses `pytesseract`, which requires the external `tesseract` binary to be installed on the host at runtime (not required for the test suite, which mocks OCR, the LLM provider, and the UIClip provider). See [ROADMAP.md](ROADMAP.md) for the full phased plan. The frontend is still not implemented.
 
+`AnalysisReport` also carries an additive, backward-compatible `presentation` field: a ready-to-render view over `lucidui`/`llmInterpretation`/`uiclip`, built once by a small pure formatter (`app/presentation/report_builder.py`) after those sections are already computed — no metric is recomputed and no provider is called again. It exists so the frontend only has to render, not interpret metrics, map fields, or compute scores itself — see [docs/api/presentation-schema.md](docs/api/presentation-schema.md).
+
 ## Planned Features
 
 - Deterministic UI metric analysis (contrast, edge density, element density, Hick's/Fitts's Law estimates, whitespace, alignment, colorfulness, visual balance, and more — see [docs/metrics/metric-catalog.md](docs/metrics/metric-catalog.md)).

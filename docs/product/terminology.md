@@ -16,9 +16,9 @@ Consistent vocabulary for LucidUI documentation, API responses, and frontend cop
 
 **Observation** — A natural-language statement produced by the LLM interpretation stage, grounded in one or more specific metric values (see "metric evidence" in [docs/api/report-schema.md](../api/report-schema.md)).
 
-**Recommendation** — Deliberately not a LucidUI output type in early phases. LucidUI reports observations and review areas, not prescriptive recommendations — see [non-goals.md](non-goals.md).
+**Recommendation** — A short, metric-traceable suggestion produced by the LLM interpretation stage (`llmInterpretation.recommendations`, passed through into `presentation.recommendations`). Grounded entirely in the deterministic metric JSON, never a prescriptive design verdict — see [non-goals.md](non-goals.md).
 
-**UIClip preference score** — The output of the UIClip model: a learned signal representing the model's relative preference/quality judgment for the given screenshot and description. It is a model output, not a measurement of objective quality.
+**UIClip raw model score** — The output of the UIClip model (`uiclip.qualityScore` / `presentation.uiclipSummary.rawScoreDisplay`): an uncalibrated, CLIP-style dot-product/logit value representing the model's learned signal for the given screenshot and description. It is a model output, not a measurement of objective quality, and — since no verified 0–100/0–1 normalization exists — not on the same scale as LucidUI's weighted signal score (`uiclip.normalizedQualityScore` is always `null` today). Avoid "preference score," which does not match the implemented field.
 
 **Agreement** — A case where the LucidUI-derived interpretation and the UIClip result point in the same direction on a given aspect of the UI.
 

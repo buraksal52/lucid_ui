@@ -13,6 +13,12 @@ functions"). Prompt construction/LLM-provider calls live in `app.llm`;
 UIClip provider calls live in `app.uiclip` — never here, and neither module
 receives the other's output (LLM never sees UIClip output or the image;
 UIClip never sees deterministic metrics or LLM output) — see ADR-003/ADR-004.
+
+Once `metric_result`/`llm_result`/`uiclip_result` are computed, they are
+handed once, unmodified, to `app.presentation.report_builder.build_presentation`
+to produce `AnalysisReport.presentation` — a ready-to-render, additive view.
+That builder is pure (no FastAPI/repository/provider dependency) and never
+re-runs any of the three stages above.
 """
 
 import time
@@ -25,6 +31,7 @@ from app.images.validator import ImageValidator
 from app.llm.service import LLMInterpretationService
 from app.metrics.engine import MetricEngine
 from app.metrics.models import DeterministicMetricResult
+from app.presentation.report_builder import build_presentation
 from app.repositories.base import AnalysisRepository
 from app.schemas.analysis import AnalysisReport, TimingResult
 from app.schemas.comparison import ComparisonResult
@@ -116,6 +123,15 @@ class AnalysisService:
             comparison_ms=0,
         )
 
+        note = self._build_note(uiclip_result)
+        presentation = build_presentation(
+            context=context_enum,
+            metric_result=metric_result,
+            llm_result=llm_result,
+            uiclip_result=uiclip_result,
+            closing_note=note,
+        )
+
         report = AnalysisReport(
             analysis_id=analysis_id,
             context=context_enum,
@@ -126,7 +142,8 @@ class AnalysisService:
             uiclip=uiclip_result,
             comparison=self._build_unavailable_comparison_result(metric_result, uiclip_result),
             timings=timings,
-            note=self._build_note(uiclip_result),
+            note=note,
+            presentation=presentation,
         )
 
         self._repository.save(report)

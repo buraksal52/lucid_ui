@@ -14,18 +14,20 @@ The frontend must model these states explicitly across the upload-to-results flo
 | `partial_success` | Deterministic metrics completed but at least one optional stage did not (`disabled`, `unavailable`, `fallback`, or `failed`). |
 | `failed` | The deterministic metric engine failed; no usable report was produced. |
 
-These map directly to the `status` values in [docs/api/report-schema.md](../api/report-schema.md). The `analyzing_metrics` / `running_uiclip` / `interpreting` states are frontend-only progress states inferred from elapsed time and/or streaming updates (if implemented) — the backend's own status enum does not need sub-stage granularity in Phase 0–1.
+These map directly to the `status` values in [docs/api/report-schema.md](../api/report-schema.md). The `analyzing_metrics` / `running_uiclip` / `interpreting` states are frontend-only progress states inferred from elapsed time (the backend's single `POST /analyses/single` call does not stream sub-stage progress — the whole report arrives at once when the request completes).
+
+**`status: "failed"` never actually appears in a report body in the current implementation.** If the deterministic metric engine fails, the backend raises before any `AnalysisReport` is constructed, and the request returns the `ANALYSIS_FAILED` HTTP error envelope instead (see [error-codes.md](../api/error-codes.md)) — there is no partial report to show. Treat the frontend's `failed` UI state as driven entirely by that HTTP-level error (or any other top-level error response), not by a `status` field value you need to check in a `200` body. The `failed` row above is kept for schema completeness/forward-compatibility, not because it is reachable today.
 
 ## Partial Success Behavior
 
-When `status` is `partial_success`, the dashboard must still render every section that did complete, rather than hiding the whole results view. Example:
+When `status` is `partial_success`, render `presentation` exactly as given — it already reflects which stage did and didn't complete, so **no extra branching on `llmInterpretation.status`/`uiclip.status` is needed at the dashboard level**:
 
-- LucidUI metrics: `completed` → render `MetricCard`s and `CompositeSignalCard` normally.
-- LLM interpretation: `completed` → render `LLMInterpretationPanel` normally.
-- UIClip: `unavailable` → render `UIClipEvaluationCard` in its unavailable state (see [component-contracts.md](component-contracts.md)), and skip or gray out `AgreementPanel`/`DifferencePanel` since no comparison could be computed.
+- `presentation.metricSections[].explanation` falls back to a fixed placeholder (`"No LLM interpretation is linked to this metric."`) on its own when the LLM stage didn't complete — every section still renders with its `rawDisplay` value.
+- `presentation.uiclipSummary.status` carries `"disabled"`/`"unavailable"`/`"failed"`; `rawScoreDisplay`/`modelId`/`scoreType` are simply `null` in those cases — render the card in a neutral "not available" state (see [component-contracts.md](component-contracts.md) `PresentationDashboard`/`UIClipEvaluationCard`), never as an error.
+- `presentation.closingNote` (same string as `note`) already explains, in one sentence, why a section is missing — surface it near the top of the dashboard (e.g. via `AnalysisSummary`) rather than re-deriving that explanation from individual statuses.
 
-The `note` field on the report should be surfaced near the top of the dashboard (e.g. via `AnalysisSummary`) so the user understands why a section is missing, without treating it as an error.
+See [examples/single-analysis-partial-success-response.json](../api/examples/single-analysis-partial-success-response.json) for a real captured `partial_success` report (UIClip `unavailable`) to develop and test this state against.
 
 ## Failure Behavior
 
-When `status` is `failed`, or the request itself errors (see [docs/api/error-codes.md](../api/error-codes.md)), the frontend shows `ErrorBanner` with the error code and message, and does not attempt to render a partial dashboard, since no deterministic metrics exist to show.
+When the request itself errors (see [docs/api/error-codes.md](../api/error-codes.md) — in practice `VALIDATION_ERROR`, `UNSUPPORTED_MEDIA_TYPE`, `FILE_TOO_LARGE`, `INVALID_IMAGE`, `INVALID_CONTEXT`, `ANALYSIS_FAILED`, or `INTERNAL_ERROR`), the frontend shows `ErrorBanner` with the error code and message, and does not attempt to render any dashboard, since no report exists at all.

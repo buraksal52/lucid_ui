@@ -16,6 +16,7 @@ from app.metrics.models import DeterministicMetricResult
 from app.schemas.common import AnalysisContext, AnalysisMode, AnalysisStatus, CamelModel
 from app.schemas.comparison import ComparisonResult
 from app.schemas.llm import LLMInterpretationResult
+from app.schemas.presentation import PresentationReport
 from app.schemas.uiclip import UIClipResult
 
 
@@ -40,3 +41,7 @@ class AnalysisReport(CamelModel):
     comparison: ComparisonResult
     timings: TimingResult
     note: str
+    # Additive, backward-compatible: a ready-to-render view over the fields
+    # above. Does not replace, rename, or remove any of them — see
+    # app.presentation.report_builder and docs/api/presentation-schema.md.
+    presentation: PresentationReport

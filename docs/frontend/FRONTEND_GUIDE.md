@@ -5,12 +5,12 @@ The React frontend is developed independently from the backend, against the docu
 ## Frontend Responsibilities
 
 - Upload images (JPG, PNG, WebP).
-- Collect optional descriptions and context from the user.
-- Send API requests to the LucidUI backend (`/api/v1/analyses/single`, `/api/v1/analyses/variants`).
+- Collect optional description and context (`general`/`expert`) from the user.
+- Send API requests to the LucidUI backend (`POST /api/v1/analyses/single`, `GET /api/v1/analyses/{analysisId}`, `GET /api/v1/analyses/{analysisId}/raw` — see [api-contract.md](../api/api-contract.md); `POST /api/v1/analyses/variants` does not exist yet, do not build against it).
 - Display loading, partial-success, success, and error states (see [ui-states.md](ui-states.md)).
-- Visualize backend results (metrics, LLM interpretation, UIClip evaluation, comparison).
+- Visualize backend results — primarily `presentation` (see below); `comparison` exists in the schema but carries no real agreement/disagreement data yet (Phase 6 not implemented) — do not build a comparison UI against it as if it were real.
 - Preserve backend values exactly as returned — display, don't transform.
-- Never calculate or modify metric scores, composite scores, or comparison findings client-side.
+- Never calculate or modify metric scores, composite scores, normalized scores, or display-string formatting client-side — all of that is already done in `presentation`.
 - Never present LucidUI or UIClip output as objective truth — see Language Guidelines below.
 
 ## Backend Responsibilities (Not the Frontend's Job)
@@ -20,10 +20,35 @@ The React frontend is developed independently from the backend, against the docu
 - Deterministic metric computation (LucidUI engine).
 - LLM interpretation of metrics.
 - UIClip inference.
-- Comparison between LucidUI and UIClip output.
+- Building the ready-to-render `presentation` view (metric-section ordering, display-string formatting, LLM-observation-to-metric linking, fallback text).
+- Comparison between LucidUI and UIClip output (not implemented yet — Phase 6).
 - Final report generation and versioning.
 
-If a frontend task seems to require computing or re-deriving a score, that is a sign the request belongs in the backend, not the frontend — flag it rather than implementing it client-side.
+If a frontend task seems to require computing or re-deriving a score, formatting a raw number for display, or deciding which LLM observation belongs to which metric, that is a sign the request belongs in the backend, not the frontend — flag it rather than implementing it client-side. It most likely already exists in `presentation`.
+
+## Running the Backend Locally
+
+The backend is a real, runnable FastAPI app — see the root [README.md](../../README.md) "Local Setup" for the full setup. Summary:
+
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate   # macOS/Linux
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+```text
+API:      http://localhost:8000
+Swagger:  http://localhost:8000/docs   (interactive, live schema — including PresentationReport)
+OpenAPI:  http://localhost:8000/openapi.json
+Health:   http://localhost:8000/api/v1/health
+```
+
+- **CORS** is wide open in local development (`allow_origins: ["*"]`, no credentials) — no special frontend configuration is needed to call the API from a dev server on a different port/origin.
+- **No API key or model download is required to run the full pipeline**: `LLM_PROVIDER` and `UICLIP_PROVIDER` both default to `mock` in `backend/.env.example`, so every request returns a complete, real report shape (just with placeholder LLM/UIClip content) with zero external dependencies. Real providers (`gemini`, `huggingface`) are opt-in via `backend/.env` and change field *values*, never field *shapes* — see [api-contract.md](../api/api-contract.md).
+- Alternatively, build against the static example files with no backend running at all — see [mock-development.md](mock-development.md).
+- OCR (`pytesseract`) requires the `tesseract` binary on the host; without it, `POST /analyses/single` returns `ANALYSIS_FAILED` — install it (e.g. `brew install tesseract`) if running real requests locally.
 
 ## Planned User Flow
 
@@ -37,18 +62,32 @@ Upload
 
 1. **Upload** — user selects or drags a screenshot file.
 2. **Preview and Description** — user sees a preview of the selected image and can optionally add a free-text description and pick a context (`general`/`expert`).
-3. **Start Analysis** — user submits; the frontend calls the appropriate endpoint.
-4. **Processing** — the frontend shows progress across the sub-stages (metrics, LLM, UIClip) as reflected by the `analyzing_metrics` / `interpreting` / `running_uiclip` UI states (see [ui-states.md](ui-states.md)).
-5. **Results Dashboard** — the frontend renders the completed (or partially completed) report.
+3. **Start Analysis** — user submits; the frontend calls `POST /api/v1/analyses/single` (`multipart/form-data`: `image`, optional `context`/`description`/`runLlm`/`runUiclip`).
+4. **Processing** — this is a single request/response call, not a polling flow — the backend does not stream sub-stage progress or expose a job-status endpoint. The frontend shows `analyzing_metrics`/`interpreting`/`running_uiclip` purely as frontend-local, elapsed-time-inferred progress states (see [ui-states.md](ui-states.md)) while awaiting the one HTTP response.
+5. **Results Dashboard** — the frontend renders `presentation` from the completed (or partially completed) report — see "Presentation Layer" below.
+
+## Presentation Layer (Use This First)
+
+`AnalysisReport.presentation` (see [presentation-schema.md](../api/presentation-schema.md)) is a ready-to-render view already built by the backend from `lucidui`, `llmInterpretation`, and `uiclip` — fixed-order metric sections with pre-formatted display strings, a composite summary, a UIClip summary card, recommendations, limitations, and a closing note.
+
+**The frontend must not compute metric meaning, map fields, generate text, or calculate scores itself. It should render `presentation` directly.** If a dashboard component seems to need to interpret a raw or normalized metric value, resolve which metric an LLM observation belongs to, format a number for display, or judge whether a UIClip score is comparable to LucidUI's — that logic already exists in `presentation` and belongs in the backend, not in frontend code. `lucidui`, `llmInterpretation`, `uiclip`, `comparison`, and `timings` remain available (unchanged) for technical/raw views (e.g. `RawJsonViewer`), but the primary dashboard should be built against `presentation`.
 
 ## Dashboard Sections
 
-1. **Analysis summary** — overall status, composite signal score, top-level note.
-2. **LucidUI metrics** — raw and normalized metric values, organized by the [metric catalog](../metrics/metric-catalog.md).
-3. **LLM interpretation** — summary and evidence-linked observations.
-4. **UIClip evaluation** — preference score, model-generated description, status.
-5. **LucidUI versus UIClip comparison** — shared findings, LucidUI-only findings, UIClip-only findings, agreement level.
-6. **Technical details and limitations** — raw JSON access, proxy-status disclosures, known limitations relevant to the shown metrics.
+Built from `presentation` (see "Presentation Layer" above):
+
+1. **Analysis summary** — `presentation.title`, `presentation.summary`, overall `status`, `presentation.closingNote`.
+2. **LucidUI metric sections** — `presentation.metricSections[]`, rendered in the given fixed order (10 cards: Contrast, Visual Complexity, Elements & Target Size, Hick's Law, Grouping, Text Density, Whitespace & Alignment, Colorfulness, Fitts's Law, Visual Balance).
+3. **Composite score** — `presentation.composite`, with its fixed non-verdict `explanation`.
+4. **UIClip evaluation card** — `presentation.uiclipSummary`, shown as a standalone, independent result — see "LucidUI vs. UIClip" below.
+5. **Recommendations and limitations** — `presentation.recommendations[]`, `presentation.limitations[]`.
+6. **Technical details** — raw JSON access (`RawJsonViewer`), for the underlying `lucidui`/`llmInterpretation`/`uiclip` sections `presentation` was built from (see [dashboard-data-mapping.md](dashboard-data-mapping.md)'s raw/technical table).
+
+There is currently **no** "LucidUI versus UIClip comparison" section with real agreement/disagreement data — `comparison.agreementLevel` is always `"unavailable"` (Phase 6 not implemented). Do not build one against real data yet.
+
+### LucidUI vs. UIClip: Two Independent Results, Not a Verdict
+
+LucidUI's metric sections and the UIClip summary card are two **independent** evaluations of the same screenshot — one deterministic and explainable, one a learned model's holistic score (see [ADR-004](../architecture/decisions/ADR-004-uiclip-independent-evaluator.md)). The dashboard should let the user see both side by side and draw their own conclusions; it must not synthesize, merge, or imply agreement/disagreement between them — that synthesis doesn't exist yet (Phase 6), and even once it does, per [ADR-004](../architecture/decisions/ADR-004-uiclip-independent-evaluator.md) neither system is ground truth for the other. `presentation.uiclipSummary.comparableToLucidui` is always `false`, with `comparabilityNote` explaining why — always render that note next to the UIClip card rather than placing it beside `presentation.composite` as if the two scores were on the same scale.
 
 See [dashboard-data-mapping.md](dashboard-data-mapping.md) for exact report-field-to-component mapping, and [component-contracts.md](component-contracts.md) for component-level responsibilities.
 
@@ -67,7 +106,7 @@ LucidUI is a flashlight, not a judge — see [CLAUDE.md](../../CLAUDE.md) and [d
 
 - "below the selected reference threshold"
 - "potential review area"
-- "higher UIClip preference score"
+- "UIClip's raw model score" (never "preference score" or "quality score" — see `presentation.uiclipSummary.scoreType`, always `"Learned raw model score"`)
 - "proxy signal"
 - "estimated"
 - "detected"
@@ -83,3 +122,4 @@ LucidUI is a flashlight, not a judge — see [CLAUDE.md](../../CLAUDE.md) and [d
 - [mock-development.md](mock-development.md)
 - [docs/api/api-contract.md](../api/api-contract.md)
 - [docs/api/report-schema.md](../api/report-schema.md)
+- [docs/api/presentation-schema.md](../api/presentation-schema.md)

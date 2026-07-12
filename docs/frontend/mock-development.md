@@ -1,18 +1,20 @@
 # Mock Development
 
-The frontend can be built and tested before the backend exists, using the documented API contract and mocked example responses. See [ADR-005](../architecture/decisions/ADR-005-mock-providers-before-real-integrations.md) and [ADR-006](../architecture/decisions/ADR-006-frontend-backend-independence.md) for why this pattern is used across the project.
+The frontend can be built and tested without running the Python backend, using the documented API contract and real, captured example responses. See [ADR-005](../architecture/decisions/ADR-005-mock-providers-before-real-integrations.md) and [ADR-006](../architecture/decisions/ADR-006-frontend-backend-independence.md) for why this pattern is used across the project.
 
 ## Mock Data Sources
 
 Use these files as the frontend's development-time data source:
 
 ```text
-docs/api/examples/single-analysis-response.json
-docs/api/examples/variant-analysis-response.json
-docs/api/examples/error-response.json
+docs/api/examples/single-analysis-response.json                  — completed (LLM + UIClip mock providers both ran)
+docs/api/examples/single-analysis-partial-success-response.json  — partial_success (UIClip unavailable, LLM completed)
+docs/api/examples/error-response.json                            — error envelope (UNSUPPORTED_MEDIA_TYPE)
 ```
 
-These are schema-accurate, realistic examples matching [docs/api/report-schema.md](../api/report-schema.md) and [docs/api/error-codes.md](../api/error-codes.md), including a `partial_success` case (UIClip `unavailable` in `variant-analysis-response.json`).
+The two `single-analysis-*` files are **real captured responses** from the live backend (mock LLM provider, a fake unavailable UIClip provider for the partial-success case) — not hand-written approximations — so they are safe to treat as field-for-field authoritative alongside [report-schema.md](../api/report-schema.md) and [presentation-schema.md](../api/presentation-schema.md). Use `single-analysis-response.json` to build and exercise the primary "everything completed" dashboard path (`presentation.uiclipSummary.status: "completed"`), and `single-analysis-partial-success-response.json` to exercise the partial-success path (`status: "partial_success"`, `presentation.uiclipSummary.status: "unavailable"`, `rawScoreDisplay: null`) — see [ui-states.md](ui-states.md).
+
+`docs/api/examples/variant-analysis-response.json` is **not usable as mock data** — `POST /api/v1/analyses/variants` is not implemented (Phase 7), and that file's nested field names predate the real single-analysis contract (see [api-contract.md](../api/api-contract.md)). Do not use it to build or test anything yet.
 
 ## Recommended Setup
 

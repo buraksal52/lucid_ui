@@ -1,9 +1,9 @@
 {
   "schemaVersion": "1.0",
-  "analysisId": "3f9c6b1a-2e6b-4a3a-9a3a-1a2b3c4d5e6f",
+  "analysisId": "5e6f7a8b-9c0d-1e2f-3a4b-5c6d7e8f9a0b",
   "mode": "single",
   "context": "general",
-  "status": "completed",
+  "status": "partial_success",
   "imageMetadata": {
     "width": 900,
     "height": 560,
@@ -110,16 +110,13 @@
   },
   "uiclip": {
     "enabled": true,
-    "status": "completed",
-    "modelVersion": "mock-uiclip-v1",
-    "description": "A settings page with profile fields and a save button",
-    "descriptionSource": "user",
-    "qualityScore": 21.7,
+    "status": "unavailable",
+    "modelVersion": null,
+    "description": "A software user interface screenshot.",
+    "descriptionSource": "generic",
+    "qualityScore": null,
     "normalizedQualityScore": null,
-    "observations": [
-      "Mock UIClip observation: this is placeholder output from the offline mock evaluator, not a real model evaluation.",
-      "A real UIClip evaluation would consider both the screenshot and the submitted description together; this mock does not perform any actual image or text analysis."
-    ],
+    "observations": [],
     "inferenceTimeMs": 0
   },
   "comparison": {
@@ -139,7 +136,7 @@
     "uiclipMs": 0,
     "comparisonMs": 0
   },
-  "note": "These results are design signals for review, not objective verdicts. UIClip evaluation used the offline mock evaluator for this analysis, not the real UIClip model (see ROADMAP.md Phase 5). Comparison between LucidUI and UIClip has not been computed (see ROADMAP.md Phase 6).",
+  "note": "These results are design signals for review, not objective verdicts. UIClip evaluation is currently unavailable; no UIClip result was produced for this analysis. Comparison between LucidUI and UIClip has not been computed (see ROADMAP.md Phase 6).",
   "presentation": {
     "title": "LucidUI Design Signal Report",
     "context": "general",
@@ -299,11 +296,11 @@
       "explanation": "This composite score is a weighted signal summary of the metrics above, not a quality judgment \u2014 see docs/metrics/scoring-and-normalization.md."
     },
     "uiclipSummary": {
-      "status": "completed",
-      "modelId": "mock-uiclip-v1",
-      "userDescription": "A settings page with profile fields and a save button",
-      "rawScoreDisplay": "21.70",
-      "scoreType": "Learned raw model score",
+      "status": "unavailable",
+      "modelId": null,
+      "userDescription": null,
+      "rawScoreDisplay": null,
+      "scoreType": null,
       "normalizedScoreDisplay": null,
       "comparableToLucidui": false,
       "comparabilityNote": "UIClip's raw score is not directly comparable to LucidUI's weighted composite score \u2014 the two use different scales and methods, and comparison has not been implemented yet (see ROADMAP.md Phase 6)."
@@ -316,6 +313,6 @@
       "This interpretation was produced by a deterministic mock provider, not a live language model, and is intentionally generic.",
       "All underlying metrics are screenshot-based proxy signals with known limitations \u2014 see docs/metrics/known-limitations.md."
     ],
-    "closingNote": "These results are design signals for review, not objective verdicts. UIClip evaluation used the offline mock evaluator for this analysis, not the real UIClip model (see ROADMAP.md Phase 5). Comparison between LucidUI and UIClip has not been computed (see ROADMAP.md Phase 6)."
+    "closingNote": "These results are design signals for review, not objective verdicts. UIClip evaluation is currently unavailable; no UIClip result was produced for this analysis. Comparison between LucidUI and UIClip has not been computed (see ROADMAP.md Phase 6)."
   }
 }

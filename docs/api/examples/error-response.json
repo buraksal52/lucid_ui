@@ -1,11 +1,10 @@
 {
   "error": {
-    "code": "INVALID_IMAGE",
-    "message": "The uploaded file could not be decoded.",
+    "code": "UNSUPPORTED_MEDIA_TYPE",
+    "message": "Unsupported image type 'image/gif'. Allowed types: image/jpeg, image/png, image/webp.",
     "details": {
-      "field": "image",
-      "fileName": "corrupted-screenshot.png",
-      "reason": "Image decoder could not parse the file as a valid PNG."
+      "contentType": "image/gif",
+      "allowed": ["image/jpeg", "image/png", "image/webp"]
     }
   }
 }

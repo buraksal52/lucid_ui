@@ -71,6 +71,16 @@ This roadmap defines the phased development plan for LucidUI. Each phase must be
 - [x] Tests (`backend/tests/test_uiclip_evaluation.py`, `backend/tests/test_single_analysis.py`, `backend/tests/test_report_retrieval.py`)
 - [x] Official UIClip execution options verified (paper, HF weights, license — see docs/research/uiclip-integration.md); real model integration confirmed blocked/out of scope for this phase, deferred to Phase 5 per ADR-005 (unchanged from the original plan)
 
+## Presentation Report Layer (additive, phase-independent)
+
+- [x] `AnalysisReport.presentation` — a ready-to-render view over `lucidui`/`llmInterpretation`/`uiclip`, additive and backward-compatible (`app/schemas/presentation.py`, `app/presentation/report_builder.py`)
+- [x] Fixed-order, ready-to-render metric sections (contrast, visual complexity, elements & target size, Hick's Law, grouping, text density, whitespace & alignment, colorfulness, Fitts's Law, visual balance)
+- [x] LLM observation → metric section evidence matching, with a deterministic fallback when no observation matches
+- [x] Composite and UIClip summary cards, both explicitly non-verdict
+- [x] Tests (`backend/tests/test_presentation_report_builder.py`, `backend/tests/test_presentation_api.py`)
+
+This does not compute any new metric, re-run `MetricEngine`, re-call Gemini, or re-call UIClip — see [docs/api/presentation-schema.md](docs/api/presentation-schema.md). It does not advance Phase 5 (real UIClip integration) or Phase 6 (comparison), both still scoped as below.
+
 ## Phase 5 — Real UIClip Integration
 
 - [ ] Model loading

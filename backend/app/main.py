@@ -35,9 +35,11 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         version=settings.app_version,
         description=(
-            "LucidUI backend: deterministic UI analysis, LLM interpretation, and "
-            "UIClip comparison. Deterministic metrics are real (see app.metrics); "
-            "LLM interpretation and UIClip integration do not exist yet."
+            "LucidUI backend: deterministic UI analysis (app.metrics), LLM interpretation "
+            "(app.llm), and independent UIClip evaluation (app.uiclip) for an uploaded "
+            "screenshot, plus a ready-to-render `presentation` view over all three "
+            "(app.presentation). Comparison between LucidUI and UIClip is not implemented "
+            "yet (see ROADMAP.md Phase 6)."
         ),
         docs_url="/docs",
         openapi_url="/openapi.json",
