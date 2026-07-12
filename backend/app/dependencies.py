@@ -12,6 +12,7 @@ so `POST /analyses/single` runs real deterministic metrics. As of Phase 3,
 `get_uiclip_evaluation_service` is injected too — see ROADMAP.md.
 """
 
+import logging
 from functools import lru_cache
 
 from app.config import get_settings
@@ -26,6 +27,7 @@ from app.metrics.engine import MetricEngine
 from app.repositories.base import AnalysisRepository
 from app.repositories.in_memory import InMemoryAnalysisRepository
 from app.services.analysis_service import AnalysisService
+from app.uiclip.huggingface_provider import HuggingFaceUIClipProvider
 from app.uiclip.mock_provider import MockUIClipProvider
 from app.uiclip.provider import UIClipProvider
 from app.uiclip.service import UIClipEvaluationService
@@ -89,15 +91,25 @@ def get_llm_interpretation_service() -> LLMInterpretationService:
 def get_uiclip_provider() -> UIClipProvider | None:
     """Selects the configured UIClip provider.
 
-    Only `"mock"` is implemented as of Phase 4 — no official/real UIClip
-    model is loaded (see docs/research/uiclip-integration.md for why).
-    Any other configured value gracefully returns `None` so
-    `UIClipEvaluationService` reports `uiclip.status = "unavailable"`
-    instead of raising, exactly like `get_llm_provider`.
+    `"mock"` (default) never loads a model. `"huggingface"` loads the real
+    BIG Lab checkpoint (`Settings.uiclip_model_id`) exactly once here — this
+    function is `lru_cache`d, so the model is never reloaded per request.
+    If loading fails (network/cache/weights problem) or any other value is
+    configured, gracefully returns `None` so `UIClipEvaluationService`
+    reports `uiclip.status = "unavailable"` instead of raising, exactly
+    like `get_llm_provider`.
     """
     settings = get_settings()
     if settings.uiclip_provider == "mock":
         return MockUIClipProvider()
+    if settings.uiclip_provider == "huggingface":
+        try:
+            return HuggingFaceUIClipProvider(model_id=settings.uiclip_model_id, device=settings.uiclip_device)
+        except Exception:
+            logging.getLogger("lucidui.uiclip").exception(
+                "Failed to load UIClip model '%s'; uiclip will report unavailable", settings.uiclip_model_id
+            )
+            return None
     return None
 
 

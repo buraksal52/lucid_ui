@@ -35,11 +35,14 @@ class Settings(BaseSettings):
     llm_max_output_tokens: int = 2048
 
     # UIClip evaluation layer (see app.uiclip). Defaults to the offline mock
-    # evaluator; no real/official provider exists yet — see
-    # docs/research/uiclip-integration.md for why real integration is
-    # deferred to Phase 5. Any value other than "mock" gracefully degrades
-    # to uiclip.status = "unavailable" rather than raising.
+    # evaluator. "huggingface" loads the official BIG Lab checkpoint via
+    # transformers.CLIPModel/CLIPProcessor (app.uiclip.huggingface_provider)
+    # — see docs/research/uiclip-integration.md for why this checkpoint was
+    # chosen. Any other value gracefully degrades to
+    # uiclip.status = "unavailable" rather than raising.
     uiclip_provider: str = "mock"
+    uiclip_model_id: str = "biglab/uiclip_jitteredwebsites-2-224-paraphrased"
+    uiclip_device: str = "auto"
 
     @property
     def cors_allow_origins_list(self) -> list[str]:

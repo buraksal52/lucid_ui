@@ -42,12 +42,14 @@ from app.uiclip.service import UIClipEvaluationService
 
 logger = get_logger("lucidui.analysis")
 
-_NOTE = (
-    "These results are design signals for review, not objective verdicts. "
-    "UIClip evaluation currently uses an offline mock evaluator — no official/real "
-    "UIClip model is integrated yet (see ROADMAP.md Phase 5). Comparison between "
-    "LucidUI and UIClip has not been computed (see ROADMAP.md Phase 6)."
-)
+_BASE_NOTE = "These results are design signals for review, not objective verdicts."
+
+_COMPARISON_NOTE = "Comparison between LucidUI and UIClip has not been computed (see ROADMAP.md Phase 6)."
+
+# Must match the `model_version` the mock provider self-identifies with
+# (see app.uiclip.mock_provider) — not re-imported from there to keep this
+# module from depending on UIClip provider internals.
+_MOCK_MODEL_VERSION = "mock-uiclip-v1"
 
 
 class AnalysisService:
@@ -124,7 +126,7 @@ class AnalysisService:
             uiclip=uiclip_result,
             comparison=self._build_unavailable_comparison_result(metric_result, uiclip_result),
             timings=timings,
-            note=_NOTE,
+            note=self._build_note(uiclip_result),
         )
 
         self._repository.save(report)
@@ -170,6 +172,27 @@ class AnalysisService:
         if llm_result.status == LLMStatus.COMPLETED and uiclip_result.status == UIClipStatus.COMPLETED:
             return AnalysisStatus.COMPLETED
         return AnalysisStatus.PARTIAL_SUCCESS
+
+    @staticmethod
+    def _build_note(uiclip_result: UIClipResult) -> str:
+        """Describes what actually happened for this analysis's UIClip stage
+        instead of a hardcoded assumption — see CLAUDE.md UIClip Rules
+        (never fabricate; UIClip is an independent evaluator). Comparison
+        stays unavailable regardless, since Phase 6 is not implemented."""
+        if uiclip_result.status == UIClipStatus.DISABLED:
+            uiclip_note = "UIClip evaluation was not requested for this analysis."
+        elif uiclip_result.status == UIClipStatus.UNAVAILABLE:
+            uiclip_note = "UIClip evaluation is currently unavailable; no UIClip result was produced for this analysis."
+        elif uiclip_result.status == UIClipStatus.FAILED:
+            uiclip_note = "UIClip evaluation failed for this analysis; no UIClip result was produced."
+        elif uiclip_result.model_version == _MOCK_MODEL_VERSION:
+            uiclip_note = (
+                "UIClip evaluation used the offline mock evaluator for this analysis, not the real "
+                "UIClip model (see ROADMAP.md Phase 5)."
+            )
+        else:
+            uiclip_note = "UIClip evaluation used the real UIClip model as an independent evaluator for this analysis."
+        return f"{_BASE_NOTE} {uiclip_note} {_COMPARISON_NOTE}"
 
     @staticmethod
     def _build_disabled_llm_result() -> LLMInterpretationResult:

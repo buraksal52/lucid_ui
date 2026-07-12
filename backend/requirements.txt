@@ -19,3 +19,12 @@ pytesseract>=0.3.10,<1.0
 # GEMINI_API_KEY is set (app.llm.gemini_provider); the default "mock"
 # provider and the full test suite never make a network call.
 google-genai>=1.0,<2.0
+# torch + transformers back the real UIClip provider
+# (app.uiclip.huggingface_provider), only actually loaded/used when
+# UICLIP_PROVIDER=huggingface. Installed unconditionally, matching how
+# google-genai is handled above. The default "mock" UIClip provider and the
+# full test suite never download or run a real model. First-time model
+# download requires internet access; the checkpoint is cached locally
+# afterward by the standard Hugging Face cache.
+torch>=2.2,<3.0
+transformers>=4.40,<5.0
