@@ -232,7 +232,7 @@ def test_metric_engine_runs_exactly_once_per_upload(
     assert calls["count"] == 1
 
 
-def test_ocr_failure_propagates_as_structured_analysis_failed_error(
+def test_ocr_failure_still_returns_analysis_with_empty_ocr_metrics(
     monkeypatch: pytest.MonkeyPatch, client: TestClient, valid_png_bytes: bytes
 ) -> None:
     def failing_ocr(*args, **kwargs):
@@ -241,6 +241,9 @@ def test_ocr_failure_propagates_as_structured_analysis_failed_error(
     monkeypatch.setattr(pytesseract, "image_to_data", failing_ocr)
 
     response = client.post(ENDPOINT, files={"image": ("shot.png", valid_png_bytes, "image/png")})
-    assert response.status_code == 500
+    assert response.status_code == 200
     body = response.json()
-    assert body["error"]["code"] == "ANALYSIS_FAILED"
+    assert body["lucidui"]["raw"]["contrast"]["averageContrastRatio"] is None
+    assert body["lucidui"]["raw"]["contrast"]["regionsAnalyzed"] == 0
+    assert body["lucidui"]["raw"]["elements"]["ocrBasedCount"] == 0
+    assert body["lucidui"]["raw"]["textDensity"]["wordsDetected"] == 0

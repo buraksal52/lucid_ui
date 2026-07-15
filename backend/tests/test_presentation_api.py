@@ -46,7 +46,6 @@ _EXPECTED_SECTION_IDS = [
 
 class _FakeRealProvider:
     name = "huggingface"
-    requires_description = False
 
     def evaluate(self, image: PILImage, description: str) -> dict[str, Any]:
         return {
@@ -58,7 +57,6 @@ class _FakeRealProvider:
 
 class _FakeUnavailableProvider:
     name = "huggingface"
-    requires_description = False
 
     def evaluate(self, image: PILImage, description: str) -> dict[str, Any]:
         raise UIClipProviderUnavailableError("test: provider unreachable")
@@ -66,7 +64,6 @@ class _FakeUnavailableProvider:
 
 class _FakeFailedProvider:
     name = "huggingface"
-    requires_description = False
 
     def evaluate(self, image: PILImage, description: str) -> dict[str, Any]:
         raise UIClipEvaluationError("test: evaluation failed")

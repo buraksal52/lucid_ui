@@ -20,7 +20,6 @@ from PIL.Image import Image
 
 class MockUIClipProvider:
     name = "mock"
-    requires_description = False  # happy to "evaluate" the generic fallback description too
 
     def evaluate(self, image: Image, description: str) -> dict[str, Any]:
         return {

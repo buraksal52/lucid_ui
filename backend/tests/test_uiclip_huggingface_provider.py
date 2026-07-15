@@ -219,9 +219,8 @@ def test_inference_failure_raises_uiclip_evaluation_error(monkeypatch: pytest.Mo
         provider.evaluate(Image.new("RGB", (10, 10)), "A page")
 
 
-# ---------- Interface / capability declarations ----------
+# ---------- Interface declarations ----------
 
 
-def test_provider_declares_name_and_requires_description() -> None:
+def test_provider_declares_name() -> None:
     assert HuggingFaceUIClipProvider.name == "huggingface"
-    assert HuggingFaceUIClipProvider.requires_description is True

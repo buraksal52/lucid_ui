@@ -19,7 +19,6 @@ from app.config import get_settings
 from app.images.decoder import ImageDecoder
 from app.images.metadata import ImageMetadataExtractor
 from app.images.validator import ImageValidator
-from app.llm.gemini_provider import GeminiLLMProvider
 from app.llm.mock_provider import MockLLMProvider
 from app.llm.provider import LLMProvider
 from app.llm.service import LLMInterpretationService
@@ -27,7 +26,6 @@ from app.metrics.engine import MetricEngine
 from app.repositories.base import AnalysisRepository
 from app.repositories.in_memory import InMemoryAnalysisRepository
 from app.services.analysis_service import AnalysisService
-from app.uiclip.huggingface_provider import HuggingFaceUIClipProvider
 from app.uiclip.mock_provider import MockUIClipProvider
 from app.uiclip.provider import UIClipProvider
 from app.uiclip.service import UIClipEvaluationService
@@ -73,6 +71,8 @@ def get_llm_provider() -> LLMProvider | None:
     if settings.llm_provider == "gemini":
         if not settings.gemini_api_key:
             return None
+        from app.llm.gemini_provider import GeminiLLMProvider
+
         return GeminiLLMProvider(
             api_key=settings.gemini_api_key,
             model=settings.gemini_model,
@@ -104,6 +104,8 @@ def get_uiclip_provider() -> UIClipProvider | None:
         return MockUIClipProvider()
     if settings.uiclip_provider == "huggingface":
         try:
+            from app.uiclip.huggingface_provider import HuggingFaceUIClipProvider
+
             return HuggingFaceUIClipProvider(model_id=settings.uiclip_model_id, device=settings.uiclip_device)
         except Exception:
             logging.getLogger("lucidui.uiclip").exception(

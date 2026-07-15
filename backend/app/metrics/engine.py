@@ -40,8 +40,9 @@ from typing import Any
 import numpy as np
 import pytesseract
 
+from app.core.logging import get_logger
 from app.images.models import DecodedImage
-from app.metrics.exceptions import MetricAnalysisError, OCRExecutionError
+from app.metrics.exceptions import MetricAnalysisError
 from app.metrics.models import DeterministicMetricResult
 from app.metrics.serializer import to_json_safe
 from app.schemas.common import AnalysisContext
@@ -58,6 +59,9 @@ from reference.legacy_metric_engine import (
     normalize_metrics,
     weighted_score,
 )
+
+
+logger = get_logger("lucidui.metrics")
 
 
 class MetricEngine:
@@ -110,7 +114,6 @@ class MetricEngine:
     def _run_ocr(cv_image: np.ndarray) -> dict:
         try:
             return pytesseract.image_to_data(cv_image, output_type=pytesseract.Output.DICT)
-        except OCRExecutionError:
-            raise
         except Exception as exc:
-            raise OCRExecutionError("OCR execution failed while analyzing the image.") from exc
+            logger.warning("OCR execution failed; continuing with empty OCR data: %s", exc)
+            return {"text": [], "conf": [], "left": [], "top": [], "width": [], "height": []}

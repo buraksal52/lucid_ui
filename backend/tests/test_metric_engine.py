@@ -6,7 +6,7 @@ from PIL import Image
 import reference.legacy_metric_engine as legacy
 from app.images.models import DecodedImage, ImageMetadata
 from app.metrics.engine import MetricEngine
-from app.metrics.exceptions import MetricAnalysisError, OCRExecutionError
+from app.metrics.exceptions import MetricAnalysisError
 from app.schemas.common import AnalysisContext
 
 
@@ -169,15 +169,20 @@ def test_engine_output_matches_legacy_reference_exactly(
 # ---------- Failure handling ----------
 
 
-def test_ocr_exception_becomes_ocr_execution_error(
+def test_ocr_exception_falls_back_to_empty_ocr_data(
     monkeypatch: pytest.MonkeyPatch, engine: MetricEngine, decoded_image: DecodedImage
 ) -> None:
     def failing_ocr(*args, **kwargs):
         raise RuntimeError("tesseract is not installed")
 
     monkeypatch.setattr(pytesseract, "image_to_data", failing_ocr)
-    with pytest.raises(OCRExecutionError):
-        engine.analyze(decoded_image, AnalysisContext.GENERAL)
+    result = engine.analyze(decoded_image, AnalysisContext.GENERAL)
+
+    assert result.raw["contrast"]["averageContrastRatio"] is None
+    assert result.raw["contrast"]["regionsAnalyzed"] == 0
+    assert result.raw["elements"]["ocrBasedCount"] == 0
+    assert result.raw["textDensity"]["wordsDetected"] == 0
+    assert result.weighted_score is not None
 
 
 def test_missing_image_data_produces_metric_domain_error(engine: MetricEngine) -> None:

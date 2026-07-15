@@ -28,18 +28,3 @@ class MetricAnalysisError(LucidUIError):
         details: Any | None = None,
     ) -> None:
         super().__init__(message=message, details=details)
-
-
-class OCRExecutionError(MetricAnalysisError):
-    """Raised when OCR execution (pytesseract) fails.
-
-    A specific, expected failure mode of MetricAnalysisError — e.g. the
-    Tesseract binary is missing or misconfigured on the host.
-    """
-
-    def __init__(
-        self,
-        message: str = "OCR execution failed while analyzing the image.",
-        details: Any | None = None,
-    ) -> None:
-        super().__init__(message=message, details=details)

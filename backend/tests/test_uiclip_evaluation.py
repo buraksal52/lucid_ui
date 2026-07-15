@@ -133,65 +133,67 @@ def test_description_is_trimmed(service: UIClipEvaluationService, decoded_screen
     assert result.description_source == DescriptionSource.USER
 
 
-# ---------- requires_description providers (e.g. the real HuggingFace provider) ----------
+# ---------- Generic fallback provider calls ----------
 
 
-class _RequiresDescriptionProvider:
-    name = "requires-description"
-    requires_description = True
+class _CapturingProvider:
+    name = "capturing"
 
     def __init__(self) -> None:
         self.call_count = 0
+        self.descriptions: list[str] = []
 
     def evaluate(self, image, description):
         self.call_count += 1
+        self.descriptions.append(description)
         return MockUIClipProvider().evaluate(image, description)
 
 
-def test_requires_description_provider_is_skipped_when_description_missing(
+def test_provider_runs_with_generic_fallback_when_description_missing(
     decoded_screenshot: DecodedImage,
 ) -> None:
-    provider = _RequiresDescriptionProvider()
-    svc = UIClipEvaluationService(provider=provider, provider_name="requires-description")
+    provider = _CapturingProvider()
+    svc = UIClipEvaluationService(provider=provider, provider_name="capturing")
 
     result = svc.evaluate(decoded_screenshot, None)
 
-    assert provider.call_count == 0  # never actually invoked
-    assert result.status == UIClipStatus.UNAVAILABLE
+    assert provider.call_count == 1
+    assert provider.descriptions == ["A software user interface screenshot."]
+    assert result.status == UIClipStatus.COMPLETED
     assert result.description_source == DescriptionSource.GENERIC
 
 
-def test_requires_description_provider_is_skipped_when_description_blank(
+def test_provider_runs_with_generic_fallback_when_description_blank(
     decoded_screenshot: DecodedImage,
 ) -> None:
-    provider = _RequiresDescriptionProvider()
-    svc = UIClipEvaluationService(provider=provider, provider_name="requires-description")
+    provider = _CapturingProvider()
+    svc = UIClipEvaluationService(provider=provider, provider_name="capturing")
 
     result = svc.evaluate(decoded_screenshot, "   ")
 
-    assert provider.call_count == 0
-    assert result.status == UIClipStatus.UNAVAILABLE
+    assert provider.call_count == 1
+    assert provider.descriptions == ["A software user interface screenshot."]
+    assert result.status == UIClipStatus.COMPLETED
+    assert result.description_source == DescriptionSource.GENERIC
 
 
-def test_requires_description_provider_runs_when_a_real_description_is_submitted(
+def test_provider_runs_with_real_description_when_submitted(
     decoded_screenshot: DecodedImage,
 ) -> None:
-    provider = _RequiresDescriptionProvider()
-    svc = UIClipEvaluationService(provider=provider, provider_name="requires-description")
+    provider = _CapturingProvider()
+    svc = UIClipEvaluationService(provider=provider, provider_name="capturing")
 
     result = svc.evaluate(decoded_screenshot, "A real checkout page description")
 
     assert provider.call_count == 1
+    assert provider.descriptions == ["A real checkout page description"]
     assert result.status == UIClipStatus.COMPLETED
     assert result.description == "A real checkout page description"
 
 
-def test_provider_without_requires_description_attribute_defaults_to_not_required(
+def test_mock_provider_runs_with_generic_fallback(
     decoded_screenshot: DecodedImage,
 ) -> None:
-    """MockUIClipProvider (and any provider that doesn't declare the
-    attribute) must keep working exactly as before — this is an opt-in
-    capability, not a new requirement on every provider."""
     svc = UIClipEvaluationService(provider=MockUIClipProvider(), provider_name="mock")
     result = svc.evaluate(decoded_screenshot, None)
     assert result.status == UIClipStatus.COMPLETED

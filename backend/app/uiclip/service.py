@@ -16,13 +16,11 @@ Deliberately receives only `DecodedImage` and a description string — never
 `DeterministicMetricResult`, Gemini/LLM output, or comparison results, per
 ADR-004 (UIClip is an independent evaluator).
 
-Providers may opt in to requiring a genuine user-submitted description (see
-`requires_description` on `HuggingFaceUIClipProvider`) — for such a
-provider, if only the generic screenshot-placeholder description would be
-used, this service returns `unavailable` without ever calling the provider,
-rather than evaluating a real model against a non-description. This is a
-duck-typed, optional attribute (defaults to `False` via `getattr`), not a
-change to the `UIClipProvider` Protocol itself.
+When no description is submitted, this service uses the documented generic
+fallback string and still calls the configured provider. That keeps the
+API's "description is optional" contract true for both mock and real
+providers, while preserving `descriptionSource` so consumers can see whether
+the prompt was user-supplied or generic.
 """
 
 import logging
@@ -56,13 +54,6 @@ class UIClipEvaluationService:
         if self._provider is None:
             logger.info(
                 "UIClip evaluation unavailable: no provider configured (uiclip_provider=%s)", self._provider_name
-            )
-            return self._unavailable_result(resolved_description, description_source)
-
-        if getattr(self._provider, "requires_description", False) and description_source == DescriptionSource.GENERIC:
-            logger.info(
-                "UIClip provider %s requires a real user-submitted description; none was provided",
-                self._provider_name,
             )
             return self._unavailable_result(resolved_description, description_source)
 

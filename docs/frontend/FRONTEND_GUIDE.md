@@ -48,7 +48,7 @@ Health:   http://localhost:8000/api/v1/health
 - **CORS** is wide open in local development (`allow_origins: ["*"]`, no credentials) — no special frontend configuration is needed to call the API from a dev server on a different port/origin.
 - **No API key or model download is required to run the full pipeline**: `LLM_PROVIDER` and `UICLIP_PROVIDER` both default to `mock` in `backend/.env.example`, so every request returns a complete, real report shape (just with placeholder LLM/UIClip content) with zero external dependencies. Real providers (`gemini`, `huggingface`) are opt-in via `backend/.env` and change field *values*, never field *shapes* — see [api-contract.md](../api/api-contract.md).
 - Alternatively, build against the static example files with no backend running at all — see [mock-development.md](mock-development.md).
-- OCR (`pytesseract`) requires the `tesseract` binary on the host; without it, `POST /analyses/single` returns `ANALYSIS_FAILED` — install it (e.g. `brew install tesseract`) if running real requests locally.
+- OCR (`pytesseract`) uses the `tesseract` binary when it is available on the host. Without it, `POST /analyses/single` still returns a report, but OCR-dependent metrics use empty OCR data and report no detected text.
 
 ## Planned User Flow
 

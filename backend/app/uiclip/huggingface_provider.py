@@ -60,15 +60,15 @@ _DESCRIPTION_PREFIX = "ui screenshot. well-designed. "
 
 
 class HuggingFaceUIClipProvider:
-    """Real UIClip provider. Requires a genuine user-submitted description
-    (see `requires_description`) — evaluating the generic screenshot
-    placeholder against the real model would produce a misleading score, so
-    `UIClipEvaluationService` skips calling this provider entirely when no
-    real description was submitted, returning `unavailable` instead.
+    """Real UIClip provider.
+
+    The service always passes a resolved description string. When the user
+    omits one, that string is the documented generic fallback, and the report
+    keeps `descriptionSource = "generic"` so callers can distinguish it from
+    user-authored context.
     """
 
     name = "huggingface"
-    requires_description = True
 
     def __init__(self, model_id: str, device: str) -> None:
         try:

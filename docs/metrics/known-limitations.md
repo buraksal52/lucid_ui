@@ -12,7 +12,7 @@ This document collects limitations that apply broadly across the LucidUI determi
 
 ## Implementation Limitations
 
-- **Single shared OCR pass**: as of Phase 2B-1, `app.metrics.MetricEngine` runs Tesseract OCR exactly once per analysis and shares the resulting word/box data across contrast, element detection, and text density. This is an intentional performance choice (see [ROADMAP.md](../../ROADMAP.md) Phase 2B-1), but it also means a single OCR miss or false detection propagates into all three of those metrics simultaneously for that analysis, rather than affecting them independently.
+- **Single shared OCR pass**: as of Phase 2B-1, `app.metrics.MetricEngine` runs Tesseract OCR at most once per analysis and shares the resulting word/box data across contrast, element detection, and text density. This is an intentional performance choice (see [ROADMAP.md](../../ROADMAP.md) Phase 2B-1), but it also means a single OCR miss or false detection propagates into all three of those metrics simultaneously for that analysis, rather than affecting them independently. If OCR execution is unavailable, those metrics are computed from empty OCR data.
 
 ## Scope Limitations
 

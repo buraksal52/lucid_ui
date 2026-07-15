@@ -19,14 +19,7 @@ from PIL.Image import Image
 
 
 class UIClipProvider(Protocol):
-    """A named, swappable backend for UIClip evaluation.
-
-    A concrete provider may optionally declare `requires_description: bool`
-    (checked via `getattr(..., False)`, not part of this Protocol's formal
-    shape) to signal that `UIClipEvaluationService` should skip calling it
-    entirely when only the generic fallback description would be used —
-    see `app.uiclip.huggingface_provider.HuggingFaceUIClipProvider`.
-    """
+    """A named, swappable backend for UIClip evaluation."""
 
     name: str
 

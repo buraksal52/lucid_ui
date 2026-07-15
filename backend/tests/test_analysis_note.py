@@ -37,7 +37,6 @@ class _FakeRealProvider:
     """Stands in for a real (non-mock) completed UIClip provider."""
 
     name = "huggingface"
-    requires_description = False
 
     def evaluate(self, image: PILImage, description: str) -> dict[str, Any]:
         return {
@@ -49,7 +48,6 @@ class _FakeRealProvider:
 
 class _FakeUnavailableProvider:
     name = "huggingface"
-    requires_description = False
 
     def evaluate(self, image: PILImage, description: str) -> dict[str, Any]:
         raise UIClipProviderUnavailableError("test: provider unreachable")
@@ -57,7 +55,6 @@ class _FakeUnavailableProvider:
 
 class _FakeFailedProvider:
     name = "huggingface"
-    requires_description = False
 
     def evaluate(self, image: PILImage, description: str) -> dict[str, Any]:
         raise UIClipEvaluationError("test: evaluation failed")
