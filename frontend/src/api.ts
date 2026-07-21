@@ -1,7 +1,8 @@
 import type {
   AnalysisContext,
   AnalysisReport,
-  ApiErrorPayload
+  ApiErrorPayload,
+  VariantAnalysisReport
 } from "./types";
 
 const DEFAULT_API_BASE_URL = "http://localhost:8000";
@@ -14,6 +15,15 @@ interface SubmitAnalysisInput {
   file: File;
   context: AnalysisContext;
   description: string;
+  runUiclip: boolean;
+}
+
+interface SubmitVariantAnalysisInput {
+  fileA: File;
+  fileB: File;
+  context: AnalysisContext;
+  descriptionA: string;
+  descriptionB: string;
   runUiclip: boolean;
 }
 
@@ -88,6 +98,38 @@ export async function submitSingleAnalysis({
   });
 
   return parseResponse<AnalysisReport>(response);
+}
+
+export async function submitVariantAnalysis({
+  fileA,
+  fileB,
+  context,
+  descriptionA,
+  descriptionB,
+  runUiclip
+}: SubmitVariantAnalysisInput): Promise<VariantAnalysisReport> {
+  const formData = new FormData();
+  formData.append("imageA", fileA);
+  formData.append("imageB", fileB);
+  formData.append("context", context);
+  formData.append("runUiclip", String(runUiclip));
+
+  const trimmedDescriptionA = descriptionA.trim();
+  if (trimmedDescriptionA.length > 0) {
+    formData.append("descriptionA", trimmedDescriptionA);
+  }
+
+  const trimmedDescriptionB = descriptionB.trim();
+  if (trimmedDescriptionB.length > 0) {
+    formData.append("descriptionB", trimmedDescriptionB);
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/analyses/variants`, {
+    method: "POST",
+    body: formData
+  });
+
+  return parseResponse<VariantAnalysisReport>(response);
 }
 
 export async function fetchRawReport(analysisId: string): Promise<AnalysisReport> {

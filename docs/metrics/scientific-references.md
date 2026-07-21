@@ -12,6 +12,8 @@ TODO: confirm exact W3C recommendation URL and publication date to cite precisel
 
 Hick, W. E. (1952). "On the rate of gain of information." *Quarterly Journal of Experimental Psychology*, 4(1), 11–26. Used as the basis for the [Hick's Law Estimate](metric-catalog.md#hicks-law-estimate) metric.
 
+**Caveat on the `b` constant**: LucidUI's `T = b × log2(n + 1)` implementation uses `b = 150ms` (exposed as `hicksLawBConstantMs`). This value is an assumed, illustrative constant chosen for the implementation — it is **not** derived from Hick (1952) or any other cited empirical source. Hick's original paper reports findings in information-theoretic bits per unit time from its own experimental apparatus, not a single universal millisecond-per-bit constant applicable to arbitrary UI screenshots. `hicksLawEstimateMs` should be read as an uncalibrated relative estimate (comparable across LucidUI analyses), not a citation-backed prediction of real human decision time. No empirical correlation between LucidUI's Hick's/Fitts's Law estimates (or Miller-referenced group count) and actual human behavioral data has been established — see [docs/research/evaluation-plan.md](../research/evaluation-plan.md) for the not-yet-executed plan to test this.
+
 ## Fitts's Law
 
 Fitts, P. M. (1954). "The information capacity of the human motor system in controlling the amplitude of movement." *Journal of Experimental Psychology*, 47(6), 381–391. Used as the basis for the [Fitts's Law Index of Difficulty](metric-catalog.md#fittss-law-index-of-difficulty) metric.
@@ -29,6 +31,10 @@ TODO: confirm this is the correct/primary paper for the specific clutter formula
 ## Hasler and Süsstrunk — Colorfulness
 
 Hasler, D., & Süsstrunk, S. (2003). "Measuring colorfulness in natural images." *Proceedings of SPIE, Human Vision and Electronic Imaging VIII*, Vol. 5007. Used as the basis for the [Colorfulness](metric-catalog.md#colorfulness) metric.
+
+## Otsu Thresholding
+
+Otsu, N. (1979). "A threshold selection method from gray-level histograms." *IEEE Transactions on Systems, Man, and Cybernetics*, 9(1), 62–66. Used (engine version `corrected-v1`) to separate ink/text pixels from background/paper pixels within each OCR text region for the [Contrast](metric-catalog.md#contrast) metric, replacing a flat bounding-box color mean.
 
 ## UIClip
 

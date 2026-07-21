@@ -36,6 +36,16 @@ These remain available, unchanged, for a secondary technical/raw view (`RawJsonV
 | Full report / `GET /analyses/{id}/raw` | `RawJsonViewer` | Currently identical to `GET /analyses/{id}` — no separate raw payload exists beyond what `lucidui.raw` already carries. |
 | Any failed request | `ErrorBanner` | Renders `error.code`/`error.message` from [error-codes.md](../api/error-codes.md) — see that document's `details` shape per code. |
 
-## Not Yet Applicable
+## Variant Comparison: `POST /api/v1/analyses/variants`
 
-`POST /api/v1/analyses/variants` and its `deltas.*` fields are **not implemented** (Phase 7) — do not build a variants dashboard yet. See [api-contract.md](../api/api-contract.md) and [report-schema.md](../api/report-schema.md#variant-analysis-report-structure--planned-not-implemented-phase-7).
+`VariantAnalysisReport` (Phase 7, real/implemented) wraps two full single-analysis reports plus computed deltas — see [report-schema.md](../api/report-schema.md#variant-analysis-report-structure) and [examples/variant-analysis-response.json](../api/examples/variant-analysis-response.json).
+
+| Report Field | Proposed Component | Notes |
+|---|---|---|
+| `variantA`, `variantB` | `VariantComparisonDashboard` → two `PresentationDashboard` instances | Each is a complete, standalone `AnalysisReport` — reuse the exact same components/mapping as the "Primary Path" table above, once per variant. Do not fork or reimplement single-analysis rendering for the compare view. |
+| `deltas.metricDeltas[]` | `DeltaPanel` | One entry per fixed `presentation.metricSections` entry, same order. `normalizedScoreDelta` may be `null` (render via `direction: "not_available"`, not as an error). `rawDisplayA`/`rawDisplayB` are already formatted — render verbatim. |
+| `deltas.compositeScoreDeltaDisplay`, `.uiclipRawScoreDeltaDisplay` | `DeltaPanel` | Pre-formatted signed strings (e.g. `"+3.20"`, `"-1.40"`, `"0.00"`) — render as-is, never reformat `deltas.compositeScoreDelta`/`.uiclipRawScoreDelta` client-side. |
+| `deltas.note` | `DeltaPanel` | Fixed disclaimer explaining the B-minus-A convention and what a missing delta means. |
+| `status`, `note`, `timings` | `VariantComparisonDashboard` | Same `completed`/`partial_success` semantics as single-analysis `status`, applied to the pair. |
+
+`comparison.*` (singular, inside each `variantA`/`variantB`) remains the unimplemented Phase 6 LucidUI-vs-UIClip agreement placeholder described above — unrelated to variant `deltas`, which compares two images, not the two evaluators.

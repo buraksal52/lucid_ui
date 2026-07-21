@@ -4,7 +4,7 @@ This is the API contract for LucidUI's implemented endpoints, and the reference 
 
 All endpoints are versioned under `/api/v1`. Base URL during local development: `http://localhost:8000` — see [docs/frontend/FRONTEND_GUIDE.md](../frontend/FRONTEND_GUIDE.md) ("Running the Backend Locally") for how to start it.
 
-> **Implementation status**: `POST /api/v1/analyses/single` implements the full request/response contract documented below. `lucidui` (deterministic metrics), `llmInterpretation`, `uiclip`, and the additive `presentation` field (see [presentation-schema.md](presentation-schema.md)) are all real, computed output — not scaffolding — regardless of which provider is configured. Two things remain unimplemented: `comparison.agreementLevel` is always `"unavailable"` (agreement/discrepancy computation is Phase 6, see [ROADMAP.md](../../ROADMAP.md)), and `POST /api/v1/analyses/variants` does not exist yet (Phase 7 — see the dedicated section below). Provider selection is configuration-driven, not a code/phase gate: `LLM_PROVIDER=mock` (default, no API key) or `gemini` (real, needs `GEMINI_API_KEY`); `UICLIP_PROVIDER=mock` (default, no download) or `huggingface` (real, loads the official BIG Lab checkpoint, needs a real submitted `description` — see "UIClip Evaluation" below). The response *shape* is identical regardless of which provider is configured; only the values inside `status`/`provider`/`modelId`-type fields differ.
+> **Implementation status**: `POST /api/v1/analyses/single` implements the full request/response contract documented below. `lucidui` (deterministic metrics), `llmInterpretation`, `uiclip`, and the additive `presentation` field (see [presentation-schema.md](presentation-schema.md)) are all real, computed output — not scaffolding — regardless of which provider is configured. `POST /api/v1/analyses/variants` (Phase 7, see the dedicated section below) is also real: it runs `/analyses/single`'s exact pipeline on two images concurrently and returns both reports plus computed `deltas`. One thing remains unimplemented: `comparison.agreementLevel` is always `"unavailable"` (agreement/discrepancy computation between LucidUI and UIClip is Phase 6, see [ROADMAP.md](../../ROADMAP.md)) — this is unrelated to variant comparison, which compares two *images*, not the two evaluators. Provider selection is configuration-driven, not a code/phase gate: `LLM_PROVIDER=mock` (default, no API key) or `gemini` (real, needs `GEMINI_API_KEY`); `UICLIP_PROVIDER=mock` (default, no download) or `huggingface` (real, loads the official BIG Lab checkpoint, needs a real submitted `description` — see "UIClip Evaluation" below). The response *shape* is identical regardless of which provider is configured; only the values inside `status`/`provider`/`modelId`-type fields differ.
 
 ---
 
@@ -78,9 +78,31 @@ All field names are `camelCase`. A minimal valid request needs only the `image` 
 
 ---
 
-## `POST /api/v1/analyses/variants` — not implemented (Phase 7)
+## `POST /api/v1/analyses/variants`
 
-**This endpoint does not exist yet.** Calling it returns a `404` from FastAPI's own routing (no matching route), not a `LucidUIError` JSON envelope. [examples/variant-analysis-response.json](examples/variant-analysis-response.json) shows the *planned* target shape only — it was written before Phase 2–4 landed, so its nested per-report field names (`compositeSignalScore`, `preferenceScore`, `scoreScale`, `fileName`/`widthPx`/`heightPx`, etc.) **do not match** the real, current single-analysis contract shown in [examples/single-analysis-response.json](examples/single-analysis-response.json). Do not build against it yet; it exists purely to communicate the intended `variantA`/`variantB`/`deltas` structure for whenever Phase 7 is implemented. Do not build a "variants" UI flow until this endpoint is real — see [ROADMAP.md](../../ROADMAP.md).
+**Purpose**: Run LucidUI's full single-analysis pipeline on two uploaded screenshots ("variant A" and "variant B"), concurrently and fully independently, and return both reports plus relative deltas between them. See [examples/variant-analysis-response.json](examples/variant-analysis-response.json) for a real, captured response (mock providers), and [report-schema.md](report-schema.md#variant-analysis-report-structure) for the full shape.
+
+**Request Format**: `multipart/form-data`.
+
+**Fields**:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `imageA` | file | Yes | Variant A screenshot — same constraints as `image` on `/analyses/single` (JPG/PNG/WebP, max 20 MB). |
+| `imageB` | file | Yes | Variant B screenshot — same constraints. |
+| `context` | string | No | Shared analysis context for both variants: `general` or `expert`. Defaults to `general`. |
+| `descriptionA` | string | No | Free-text description of variant A, used by UIClip for variant A only. Same `user`/`generic` fallback semantics as `/analyses/single`'s `description`. |
+| `descriptionB` | string | No | Same, for variant B. |
+| `runLlm` | boolean | No | Shared for both variants. Defaults to `true`. |
+| `runUiclip` | boolean | No | Shared for both variants. Defaults to `true`. |
+
+A minimal valid request needs only `imageA` and `imageB`.
+
+**Validation**: Identical per-image rules as `/analyses/single`, applied independently to `imageA` and `imageB` — a validation failure on either image (missing, unsupported MIME, oversized, corrupt, or an invalid `context`) fails the whole request with the same error codes as `/analyses/single`.
+
+**Success Response** (`200`): A `VariantAnalysisReport`, `mode: "variants"` — `variantA` and `variantB` are each a complete, standalone `AnalysisReport` (identical shape to `/analyses/single`'s response, including `presentation`), and are independently persisted the same way a single-analysis report is, so `GET /api/v1/analyses/{analysisId}` also resolves each variant's own `analysisId` afterward. `deltas` reports variant-B-minus-variant-A differences — see [report-schema.md](report-schema.md#variant-analysis-report-structure). The outer variant envelope itself (`analysisId` at the top level) is not separately retrievable; there is no `GET /analyses/variants/{id}`. `status` follows the same `completed`/`partial_success` semantics as `/analyses/single`, applied to the pair: `completed` only when both variants completed every requested stage.
+
+**Error Responses**: Same catalog as `/analyses/single` (`VALIDATION_ERROR` 422, `UNSUPPORTED_MEDIA_TYPE` 415, `FILE_TOO_LARGE` 413, `INVALID_IMAGE` 422, `INVALID_CONTEXT` 422, `ANALYSIS_FAILED` 500, `INTERNAL_ERROR` 500) — raised by whichever variant's validation/decoding fails first. See [error-codes.md](error-codes.md).
 
 ---
 

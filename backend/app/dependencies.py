@@ -15,6 +15,8 @@ so `POST /analyses/single` runs real deterministic metrics. As of Phase 3,
 import logging
 from functools import lru_cache
 
+from fastapi import Depends
+
 from app.config import get_settings
 from app.images.decoder import ImageDecoder
 from app.images.metadata import ImageMetadataExtractor
@@ -26,6 +28,7 @@ from app.metrics.engine import MetricEngine
 from app.repositories.base import AnalysisRepository
 from app.repositories.in_memory import InMemoryAnalysisRepository
 from app.services.analysis_service import AnalysisService
+from app.services.variant_analysis_service import VariantAnalysisService
 from app.uiclip.mock_provider import MockUIClipProvider
 from app.uiclip.provider import UIClipProvider
 from app.uiclip.service import UIClipEvaluationService
@@ -130,3 +133,12 @@ def get_analysis_service() -> AnalysisService:
         llm_service=get_llm_interpretation_service(),
         uiclip_service=get_uiclip_evaluation_service(),
     )
+
+
+def get_variant_analysis_service(
+    analysis_service: AnalysisService = Depends(get_analysis_service),
+) -> VariantAnalysisService:
+    # Takes `analysis_service` via `Depends()` (not a direct call) so a test
+    # override of `get_analysis_service` (see backend/tests/conftest.py)
+    # still applies to variant requests.
+    return VariantAnalysisService(analysis_service=analysis_service)

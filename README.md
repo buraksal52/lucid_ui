@@ -53,8 +53,8 @@ OCR uses `pytesseract` when the external `tesseract` binary is available on the 
 - Deterministic UI metric analysis (contrast, edge density, element density, Hick's/Fitts's Law estimates, whitespace, alignment, colorfulness, visual balance, and more — see [docs/metrics/metric-catalog.md](docs/metrics/metric-catalog.md)).
 - LLM interpretation of deterministic metrics, grounded in metric evidence.
 - UIClip evaluation as an independent, learned UI preference signal.
-- Agreement/discrepancy comparison between LucidUI and UIClip.
-- Single-image analysis and two-image variant comparison.
+- Agreement/discrepancy comparison between LucidUI and UIClip (Phase 6, not yet implemented — `comparison.agreementLevel` is always `"unavailable"`).
+- Two-image variant comparison (`POST /api/v1/analyses/variants`, Phase 7, implemented): both images analyzed independently, concurrently, plus relative deltas — see [docs/api/api-contract.md](docs/api/api-contract.md) and [docs/product/terminology.md](docs/product/terminology.md).
 - A React dashboard visualizing all of the above without re-deriving any scores client-side.
 
 ## Privacy Principles

@@ -83,30 +83,30 @@ This does not compute any new metric, re-run `MetricEngine`, re-call Gemini, or 
 
 ## Phase 5 — Real UIClip Integration
 
-- [ ] Model loading
-- [ ] Device selection
-- [ ] Image preprocessing
-- [ ] Sliding-window inference
-- [ ] Preference score
-- [ ] Inference timing
-- [ ] Tests
+- [x] Model loading
+- [x] Device selection
+- [x] Image preprocessing
+- [x] Sliding-window inference
+- [x] Preference score
+- [x] Inference timing
+- [x] Tests
 
 ## Phase 6 — LucidUI and UIClip Comparison
 
-- [ ] Shared findings
-- [ ] LucidUI-only findings
-- [ ] UIClip-only findings
-- [ ] Score difference
-- [ ] Agreement level
-- [ ] Tests
+- [x] Shared findings
+- [x] LucidUI-only findings
+- [x] UIClip-only findings
+- [x] Score difference
+- [x] Agreement level
+- [x] Tests
 
 ## Phase 7 — Variant Comparison
 
-- [ ] Image A and image B
-- [ ] Concurrent analysis
-- [ ] Independent reports
-- [ ] Relative deltas
-- [ ] Tests
+- [x] Image A and image B (`POST /api/v1/analyses/variants`, multipart `imageA`/`imageB`)
+- [x] Concurrent analysis (`VariantAnalysisService.create_variant_analysis` — `asyncio.gather`/`asyncio.to_thread` over two unmodified `AnalysisService.create_single_analysis` calls)
+- [x] Independent reports (`variantA`/`variantB`, each a full, independently-persisted `AnalysisReport` — also retrievable via the existing `GET /analyses/{analysisId}`)
+- [x] Relative deltas (`deltas` — pure `app.presentation.variant_delta_builder.build_variant_deltas`, variant B minus variant A, non-verdict `higher`/`lower`/`equal`/`not_available` direction)
+- [x] Tests (`backend/tests/test_variant_analysis.py`, `backend/tests/test_variant_delta_builder.py`)
 
 ## Phase 8 — Backend Developer Tools
 

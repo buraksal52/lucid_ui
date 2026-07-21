@@ -3,6 +3,7 @@ import pytest
 import pytesseract
 from PIL import Image
 
+import app.metrics.corrected as corrected
 import reference.legacy_metric_engine as legacy
 from app.images.models import DecodedImage, ImageMetadata
 from app.metrics.engine import MetricEngine
@@ -12,8 +13,23 @@ from app.schemas.common import AnalysisContext
 
 @pytest.fixture(autouse=True)
 def _mock_ocr(monkeypatch: pytest.MonkeyPatch, mock_ocr_data: dict) -> None:
-    """Every test in this module gets deterministic OCR unless it overrides it."""
-    monkeypatch.setattr(pytesseract, "image_to_data", lambda *args, **kwargs: mock_ocr_data)
+    """Every test in this module gets deterministic OCR unless it overrides
+    it. `mock_ocr_data`'s coordinates are designed for the 800px-wide
+    `deterministic_cv_image` fixture; `MetricEngine.analyze` now resizes the
+    image to a fixed analysis reference width before OCR ever runs (Fix
+    2f), so the mock scales `mock_ocr_data` proportionally to whatever
+    width the image it's actually invoked with has -- otherwise the mocked
+    OCR boxes would silently describe an 800px-wide image while every
+    other metric function received the resized one."""
+
+    def scaled_ocr(image, *args, **kwargs):
+        scale = image.shape[1] / 800
+        scaled = dict(mock_ocr_data)
+        for key in ("left", "top", "width", "height"):
+            scaled[key] = [round(v * scale) for v in mock_ocr_data[key]]
+        return scaled
+
+    monkeypatch.setattr(pytesseract, "image_to_data", scaled_ocr)
 
 
 @pytest.fixture
@@ -53,6 +69,7 @@ def test_ocr_runs_exactly_once(
 def test_returns_raw_metrics(engine: MetricEngine, decoded_image: DecodedImage) -> None:
     result = engine.analyze(decoded_image, AnalysisContext.GENERAL)
     assert set(result.raw.keys()) == {
+        "resolution",
         "contrast",
         "clutter",
         "elements",
@@ -71,6 +88,7 @@ def test_returns_additional_signals(engine: MetricEngine, decoded_image: Decoded
     result = engine.analyze(decoded_image, AnalysisContext.GENERAL)
     assert set(result.additional_signals.keys()) == {
         "colorfulness",
+        "hueDiversity",
         "fittsFullIndexOfDifficulty",
         "visualBalance",
     }
@@ -120,7 +138,7 @@ def test_general_and_expert_produce_different_weighted_scores(
 
 def test_metric_engine_version(engine: MetricEngine, decoded_image: DecodedImage) -> None:
     result = engine.analyze(decoded_image, AnalysisContext.GENERAL)
-    assert result.metric_engine_version == "legacy-v1"
+    assert result.metric_engine_version == "corrected-v3"
 
 
 def test_score_name(engine: MetricEngine, decoded_image: DecodedImage) -> None:
@@ -128,25 +146,52 @@ def test_score_name(engine: MetricEngine, decoded_image: DecodedImage) -> None:
     assert result.score_name == "LucidUI Composite Signal Score"
 
 
-# ---------- Legacy equivalence (most important test in this phase) ----------
+# ---------- Corrected-reference equivalence (most important test in this phase) ----------
+#
+# As of engine version "corrected-v3", MetricEngine is wired to
+# `app.metrics.corrected` for contrast(v4)/elements/groups/textDensity/
+# whitespaceAlignment/fittsFullIndexOfDifficulty (see that module's
+# docstring for why), and still to the unmodified legacy module for
+# clutter/colorfulness/visualBalance/normalize_metrics/weighted_score. This
+# test pins MetricEngine's composition to exactly that split — it
+# deliberately no longer expects bit-for-bit equality with the legacy
+# module's `analyze_contrast`/`analyze_elements`/`analyze_groups`/
+# `analyze_text_density`/`analyze_whitespace_alignment`/`analyze_fitts_full`,
+# which the audit found produced misleading values for those six metrics,
+# nor with `corrected.analyze_contrast_v2` (corrected-v1) or
+# `analyze_contrast_v3` (corrected-v2), both superseded by the dual-estimate
+# `analyze_contrast_v4` (corrected-v3) — see that function's docstring.
 
 
-def test_engine_output_matches_legacy_reference_exactly(
+def test_engine_output_matches_corrected_reference_exactly(
     engine: MetricEngine, decoded_image: DecodedImage, deterministic_cv_image: np.ndarray, mock_ocr_data: dict
 ) -> None:
-    elements_meta, elements = legacy.analyze_elements(deterministic_cv_image, mock_ocr_data)
+    # `MetricEngine.analyze` resizes to a fixed analysis reference width
+    # before anything else runs (Fix 2f) -- replicate that same resize (and
+    # the matching OCR-coordinate scale the `_mock_ocr` fixture above
+    # applies) so this "manual recomputation" is comparing like with like.
+    resized_image, resolution_info = MetricEngine._normalize_for_analysis(deterministic_cv_image)
+    scale = resized_image.shape[1] / deterministic_cv_image.shape[1]
+    scaled_ocr_data = dict(mock_ocr_data)
+    for key in ("left", "top", "width", "height"):
+        scaled_ocr_data[key] = [round(v * scale) for v in mock_ocr_data[key]]
+
+    elements_meta, elements, control_like_elements = corrected.analyze_elements_v2(resized_image, scaled_ocr_data)
+    contrast_aggregate, _contrast_regions = corrected.analyze_contrast_v4(resized_image, scaled_ocr_data)
     expected_raw = {
-        "contrast": legacy.analyze_contrast(deterministic_cv_image, mock_ocr_data),
-        "clutter": legacy.analyze_clutter(deterministic_cv_image),
+        "resolution": resolution_info,
+        "contrast": contrast_aggregate,
+        "clutter": legacy.analyze_clutter(resized_image),
         "elements": elements_meta,
-        "groups": legacy.analyze_groups(elements, deterministic_cv_image.shape),
-        "textDensity": legacy.analyze_text_density(deterministic_cv_image, mock_ocr_data),
-        "whitespaceAlignment": legacy.analyze_whitespace_alignment(deterministic_cv_image, elements),
+        "groups": corrected.analyze_groups_v2(elements, resized_image.shape),
+        "textDensity": corrected.analyze_text_density_v2(resized_image, scaled_ocr_data),
+        "whitespaceAlignment": corrected.analyze_whitespace_alignment_v2(resized_image, elements),
     }
     expected_additional = {
-        "colorfulness": legacy.analyze_colorfulness(deterministic_cv_image),
-        "fittsFullIndexOfDifficulty": legacy.analyze_fitts_full(elements),
-        "visualBalance": legacy.analyze_visual_balance(deterministic_cv_image),
+        "colorfulness": legacy.analyze_colorfulness(resized_image),
+        "hueDiversity": corrected.analyze_hue_diversity(resized_image),
+        "fittsFullIndexOfDifficulty": corrected.analyze_fitts_full_v2(control_like_elements),
+        "visualBalance": legacy.analyze_visual_balance(resized_image),
     }
     expected_normalized = legacy.normalize_metrics(expected_raw)
     expected_score_general = legacy.weighted_score(expected_normalized, "general")

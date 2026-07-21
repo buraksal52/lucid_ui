@@ -95,6 +95,30 @@ Proposed component responsibilities for the React frontend. See [FRONTEND_GUIDE.
 - **Empty state**: N/A — always available once a report exists.
 - **Error state**: N/A.
 
+## VariantUploadPanel
+
+- **Purpose**: Accept two screenshot files (variant A and variant B) for `POST /api/v1/analyses/variants`. Two instances of `UploadPanel`'s validation logic side by side, not a new validation ruleset — see [api-contract.md](../api/api-contract.md).
+- **Required data**: None (initial state).
+- **Optional data**: Same accepted MIME types/max size as `UploadPanel`; one shared `context`; per-variant `descriptionA`/`descriptionB`.
+- **Empty state**: Default prompt to select/drop a file, per slot.
+- **Error state**: Same client-side pre-validation as `UploadPanel`, applied independently to each slot; server-side errors shown via `ErrorBanner` after submission (a validation failure on either image fails the whole request — see [api-contract.md](../api/api-contract.md)).
+
+## VariantComparisonDashboard
+
+- **Purpose**: Render a `VariantAnalysisReport` (`POST /api/v1/analyses/variants`'s response) — variant A's and variant B's full dashboards side by side, plus a `DeltaPanel`.
+- **Required data**: `variantA`, `variantB` (each rendered via the existing `PresentationDashboard`/lane components — reuse them, do not fork or reimplement), `deltas`.
+- **Optional data**: `status`, `note`, `timings`.
+- **Empty state**: N/A — only rendered once a `VariantAnalysisReport` exists.
+- **Error state**: Same `partial_success` handling as `AnalysisSummary`, applied per variant (`variantA.status`/`variantB.status`) and to the envelope's own `status`.
+
+## DeltaPanel
+
+- **Purpose**: Render `deltas` from a `VariantAnalysisReport` — relative differences between variant A and variant B, verbatim, with no client-side computation.
+- **Required data**: `deltas.metricDeltas[]` (`id`, `title`, `category`, `rawDisplayA`, `rawDisplayB`, `direction`), `deltas.compositeScoreDeltaDisplay`, `deltas.uiclipRawScoreDeltaDisplay`, `deltas.note`.
+- **Optional data**: `deltas.metricDeltas[].normalizedScoreDelta`/`deltas.compositeScoreDelta`/`deltas.uiclipRawScoreDelta` (the raw numeric deltas, `null` when not available — the pre-formatted `*Display` strings are what should actually be shown to the user).
+- **Empty state**: N/A — `metricDeltas` always has exactly the same fixed 10 entries as `presentation.metricSections`.
+- **Error state**: A `null` delta (rendered via its `*Display`/`"not_available"` counterpart) is a normal, expected value when either variant didn't produce that signal — never treated as a defect. `direction` must be rendered as `higher`/`lower`/`equal`/`not_available` language only — never `better`/`worse`, per CLAUDE.md ("Flashlight, Not a Judge") and the Language Guidelines in [FRONTEND_GUIDE.md](FRONTEND_GUIDE.md).
+
 ## ErrorBanner
 
 - **Purpose**: Show request-level errors using the shared error envelope.

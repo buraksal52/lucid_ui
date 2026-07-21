@@ -123,3 +123,44 @@ export interface AnalysisReport {
   note: string;
   presentation: PresentationReport;
 }
+
+export type DeltaDirection = "higher" | "lower" | "equal" | "not_available";
+
+export interface MetricDelta {
+  id: string;
+  title: string;
+  category: string;
+  normalizedScoreDelta: number | null;
+  rawDisplayA: string;
+  rawDisplayB: string;
+  direction: DeltaDirection;
+}
+
+export interface VariantDeltas {
+  compositeScoreDelta: number | null;
+  compositeScoreDeltaDisplay: string;
+  uiclipRawScoreDelta: number | null;
+  uiclipRawScoreDeltaDisplay: string;
+  metricDeltas: MetricDelta[];
+  note: string;
+}
+
+export interface VariantTimings {
+  totalMs: number;
+  variantAMs: number;
+  variantBMs: number;
+  deltasMs: number;
+}
+
+export interface VariantAnalysisReport {
+  schemaVersion: string;
+  analysisId: string;
+  mode: "variants" | string;
+  context: AnalysisContext | string;
+  status: AnalysisStatus;
+  variantA: AnalysisReport;
+  variantB: AnalysisReport;
+  deltas: VariantDeltas;
+  timings: VariantTimings;
+  note: string;
+}

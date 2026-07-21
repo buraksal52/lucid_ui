@@ -4,13 +4,13 @@ The React frontend is developed independently from the backend, against the docu
 
 ## Frontend Responsibilities
 
-- Upload images (JPG, PNG, WebP).
+- Upload images (JPG, PNG, WebP), either one (single analysis) or two (variant comparison).
 - Collect optional description and context (`general`/`expert`) from the user.
-- Send API requests to the LucidUI backend (`POST /api/v1/analyses/single`, `GET /api/v1/analyses/{analysisId}`, `GET /api/v1/analyses/{analysisId}/raw` — see [api-contract.md](../api/api-contract.md); `POST /api/v1/analyses/variants` does not exist yet, do not build against it).
+- Send API requests to the LucidUI backend (`POST /api/v1/analyses/single`, `POST /api/v1/analyses/variants`, `GET /api/v1/analyses/{analysisId}`, `GET /api/v1/analyses/{analysisId}/raw` — see [api-contract.md](../api/api-contract.md)).
 - Display loading, partial-success, success, and error states (see [ui-states.md](ui-states.md)).
-- Visualize backend results — primarily `presentation` (see below); `comparison` exists in the schema but carries no real agreement/disagreement data yet (Phase 6 not implemented) — do not build a comparison UI against it as if it were real.
+- Visualize backend results — primarily `presentation` (see below), and for variant comparison, `deltas` (see "Variant Comparison Flow" below). `comparison` (singular, inside each `AnalysisReport`) exists in the schema but carries no real LucidUI-vs-UIClip agreement/disagreement data yet (Phase 6 not implemented) — do not build a UI against it as if it were real. This is unrelated to variant `deltas`, which compares two *images*, not the two evaluators.
 - Preserve backend values exactly as returned — display, don't transform.
-- Never calculate or modify metric scores, composite scores, normalized scores, or display-string formatting client-side — all of that is already done in `presentation`.
+- Never calculate or modify metric scores, composite scores, normalized scores, or display-string formatting client-side — all of that is already done in `presentation` (and, for variant comparison, in `deltas`).
 - Never present LucidUI or UIClip output as objective truth — see Language Guidelines below.
 
 ## Backend Responsibilities (Not the Frontend's Job)
@@ -66,6 +66,8 @@ Upload
 4. **Processing** — this is a single request/response call, not a polling flow — the backend does not stream sub-stage progress or expose a job-status endpoint. The frontend shows `analyzing_metrics`/`interpreting`/`running_uiclip` purely as frontend-local, elapsed-time-inferred progress states (see [ui-states.md](ui-states.md)) while awaiting the one HTTP response.
 5. **Results Dashboard** — the frontend renders `presentation` from the completed (or partially completed) report — see "Presentation Layer" below.
 
+A separate **Compare** flow lets a user upload two screenshots instead of one — see "Variant Comparison Flow" below.
+
 ## Presentation Layer (Use This First)
 
 `AnalysisReport.presentation` (see [presentation-schema.md](../api/presentation-schema.md)) is a ready-to-render view already built by the backend from `lucidui`, `llmInterpretation`, and `uiclip` — fixed-order metric sections with pre-formatted display strings, a composite summary, a UIClip summary card, recommendations, limitations, and a closing note.
@@ -88,6 +90,18 @@ There is currently **no** "LucidUI versus UIClip comparison" section with real a
 ### LucidUI vs. UIClip: Two Independent Results, Not a Verdict
 
 LucidUI's metric sections and the UIClip summary card are two **independent** evaluations of the same screenshot — one deterministic and explainable, one a learned model's holistic score (see [ADR-004](../architecture/decisions/ADR-004-uiclip-independent-evaluator.md)). The dashboard should let the user see both side by side and draw their own conclusions; it must not synthesize, merge, or imply agreement/disagreement between them — that synthesis doesn't exist yet (Phase 6), and even once it does, per [ADR-004](../architecture/decisions/ADR-004-uiclip-independent-evaluator.md) neither system is ground truth for the other. `presentation.uiclipSummary.comparableToLucidui` is always `false`, with `comparabilityNote` explaining why — always render that note next to the UIClip card rather than placing it beside `presentation.composite` as if the two scores were on the same scale.
+
+### Variant Comparison Flow
+
+A separate entry point (e.g. a "Compare" toggle next to the main single-analysis flow) lets a user upload two screenshots — variant A and variant B — and see both results plus relative deltas, without disturbing the single-analysis dashboard.
+
+1. **Upload A and B** — two dropzones, same client-side MIME/size validation as the single flow (`image/jpeg`/`image/png`/`image/webp`, 20 MB).
+2. **Preview and Description** — optionally describe each variant separately (`descriptionA`/`descriptionB`) and pick one shared context (`general`/`expert`) for both.
+3. **Start Comparison** — the frontend calls `POST /api/v1/analyses/variants` (`multipart/form-data`: `imageA`, `imageB`, optional `context`/`descriptionA`/`descriptionB`/`runLlm`/`runUiclip`).
+4. **Processing** — again a single request/response call (the backend runs both analyses concurrently server-side); show the same frontend-local progress states as the single flow while awaiting the one HTTP response.
+5. **Results Dashboard** — render `variantA.presentation` and `variantB.presentation` exactly as the single-analysis dashboard already does (reuse the same components — do not fork the rendering logic), plus a delta view built from `deltas` (see [report-schema.md](../api/report-schema.md#variant-analysis-report-structure)): `deltas.metricDeltas[]` (per-metric `direction`, pre-formatted `rawDisplayA`/`rawDisplayB`), `deltas.compositeScoreDeltaDisplay`, `deltas.uiclipRawScoreDeltaDisplay`. Render all of these verbatim — never recompute a delta or reformat a number client-side.
+
+**Language for deltas**: `deltas.metricDeltas[].direction` is one of `"higher"`, `"lower"`, `"equal"`, `"not_available"` — never render this as "variant A is better/worse than variant B." Color, if used, must indicate direction only (e.g. an up/down arrow), never a verdict — see Language Guidelines below.
 
 See [dashboard-data-mapping.md](dashboard-data-mapping.md) for exact report-field-to-component mapping, and [component-contracts.md](component-contracts.md) for component-level responsibilities.
 

@@ -67,6 +67,20 @@ class AgreementLevel(str, Enum):
     UNAVAILABLE = "unavailable"
 
 
+class DeltaDirection(str, Enum):
+    """Direction of a variant-comparison delta (variant B relative to A).
+
+    Deliberately non-judgmental (`higher`/`lower`, never `better`/`worse`)
+    per CLAUDE.md ("Flashlight, Not a Judge") and the Language Guidelines in
+    docs/frontend/FRONTEND_GUIDE.md.
+    """
+
+    HIGHER = "higher"
+    LOWER = "lower"
+    EQUAL = "equal"
+    NOT_AVAILABLE = "not_available"
+
+
 ALLOWED_CONTEXTS: list[str] = [c.value for c in AnalysisContext]
 
 

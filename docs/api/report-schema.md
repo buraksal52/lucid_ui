@@ -1,6 +1,6 @@
 # Report Schema
 
-This document defines the structure of an analysis report — the response shape returned by `POST /api/v1/analyses/single`, `GET /api/v1/analyses/{analysisId}`, and `GET /api/v1/analyses/{analysisId}/raw` (all real/implemented today). `POST /api/v1/analyses/variants` is **not implemented yet** (Phase 7) — see the "Variant-Analysis Report Structure" section below and [api-contract.md](api-contract.md) for endpoints. See [examples/single-analysis-response.json](examples/single-analysis-response.json) for a real, captured instance of the single-analysis shape (not a hand-written approximation).
+This document defines the structure of an analysis report — the response shape returned by `POST /api/v1/analyses/single`, `GET /api/v1/analyses/{analysisId}`, and `GET /api/v1/analyses/{analysisId}/raw` (all real/implemented today), plus the variant-comparison envelope returned by `POST /api/v1/analyses/variants` (Phase 7, also real/implemented today) — see the "Variant-Analysis Report Structure" section below and [api-contract.md](api-contract.md) for endpoints. See [examples/single-analysis-response.json](examples/single-analysis-response.json) and [examples/variant-analysis-response.json](examples/variant-analysis-response.json) for real, captured instances of each shape (not hand-written approximations).
 
 ## Single-Analysis Report Structure
 
@@ -77,9 +77,9 @@ This document defines the structure of an analysis report — the response shape
 
 `generated` must not be used until a real description-generation model exists in the system — see [CLAUDE.md](../../CLAUDE.md) and [docs/product/terminology.md](../product/terminology.md).
 
-## Variant-Analysis Report Structure — planned, not implemented (Phase 7)
+## Variant-Analysis Report Structure
 
-**`POST /api/v1/analyses/variants` does not exist yet.** This section documents the *intended* target shape only, for planning purposes:
+Returned by `POST /api/v1/analyses/variants` (Phase 7). See [examples/variant-analysis-response.json](examples/variant-analysis-response.json) for a real, captured instance (mock providers, two synthetic images).
 
 ```json
 {
@@ -88,15 +88,39 @@ This document defines the structure of an analysis report — the response shape
   "mode": "variants",
   "context": "general",
   "status": "completed",
-  "variantA": { "...single-analysis report shape..." },
-  "variantB": { "...single-analysis report shape..." },
-  "deltas": {},
-  "timings": {},
+  "variantA": { "...single-analysis report shape, see above..." },
+  "variantB": { "...single-analysis report shape, see above..." },
+  "deltas": {
+    "compositeScoreDelta": 0.0,
+    "compositeScoreDeltaDisplay": "0.00",
+    "uiclipRawScoreDelta": 0.0,
+    "uiclipRawScoreDeltaDisplay": "0.00",
+    "metricDeltas": [
+      {
+        "id": "contrast",
+        "title": "Contrast",
+        "category": "contrast",
+        "normalizedScoreDelta": 0.0,
+        "rawDisplayA": "No data available",
+        "rawDisplayB": "No data available",
+        "direction": "equal"
+      }
+    ],
+    "note": "Deltas are computed as variant B minus variant A, ..."
+  },
+  "timings": { "totalMs": 46, "variantAMs": 45, "variantBMs": 40, "deltasMs": 0 },
   "note": ""
 }
 ```
 
-`deltas` would report relative differences between `variantA` and `variantB`'s `lucidui`, `llmInterpretation`, and `uiclip` sections. [examples/variant-analysis-response.json](examples/variant-analysis-response.json) shows this planned outer shape, but its nested `variantA`/`variantB` objects use field names from before Phase 2–4 landed (`compositeSignalScore`, `preferenceScore`, `scoreScale`, `fileName`/`widthPx`/`heightPx`, etc.) that **do not match** the real single-analysis shape documented above and in [examples/single-analysis-response.json](examples/single-analysis-response.json). Do not build against this file; do not build a variants UI flow until this endpoint is actually implemented.
+- **`variantA`**/**`variantB`** — each a complete, standalone `AnalysisReport` — the exact same shape `POST /analyses/single` returns, including its own `presentation`. Each is computed by the same, unmodified single-analysis pipeline (no cross-influence between the two images) and independently persisted, so `GET /api/v1/analyses/{analysisId}` also resolves each variant's own `analysisId`. There is no separate `GET` endpoint for the outer variant envelope's own `analysisId`.
+- **`deltas`** — relative differences between `variantA` and `variantB`, computed once, server-side, from each variant's already-computed `presentation`/`uiclip` output (see [presentation-schema.md](presentation-schema.md)); the frontend renders these values as-is and never computes or formats a delta itself.
+  - **`compositeScoreDelta`**/**`compositeScoreDeltaDisplay`** — variant B's `presentation.composite.value` minus variant A's, plus a pre-formatted signed display string. Always present (the composite score is never null).
+  - **`uiclipRawScoreDelta`**/**`uiclipRawScoreDeltaDisplay`** — variant B's `uiclip.qualityScore` minus variant A's (the raw model score, not `normalizedQualityScore`, which is always `null` — see "UIClip Evaluation" in [api-contract.md](api-contract.md)). `null`/`"No data available"` whenever either variant's UIClip stage did not complete.
+  - **`metricDeltas`** — one entry per fixed `presentation.metricSections` entry (same 10, same order, as a single-analysis report). `normalizedScoreDelta` is `null` whenever either variant has no normalized score for that metric (several metric sections never have one, by design — see [presentation-schema.md](presentation-schema.md)). `rawDisplayA`/`rawDisplayB` are each variant's already-formatted `presentation.metricSections[].rawDisplay`, passed through unchanged. `direction` is `"higher"`/`"lower"`/`"equal"`/`"not_available"` — deliberately not `"better"`/`"worse"`, per [CLAUDE.md](../../CLAUDE.md) ("Flashlight, Not a Judge").
+- **`timings`** — `totalMs` (wall-clock for the whole variant request), `variantAMs`/`variantBMs` (each variant's own `timings.totalMs`, computed concurrently, not additively), `deltasMs` (time spent building `deltas` only).
+- **`status`** — `completed` only when both `variantA.status` and `variantB.status` are `completed`; otherwise `partial_success`, using the same semantics as [single-analysis `status`](#analysis-statuses).
+- **`note`** — a fixed, non-verdict disclaimer that variant A and variant B were analyzed independently and that deltas describe relative differences only.
 
 ## Related Documents
 

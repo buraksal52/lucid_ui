@@ -54,3 +54,16 @@ def format_plain(value: float | None, decimals: int = 2) -> str:
 
 def format_score_over_100(value: float, decimals: int = 1) -> str:
     return f"{value:.{decimals}f} / 100"
+
+
+def format_delta(value: float | None, decimals: int = 2) -> str:
+    """Formats a signed difference (e.g. a variant-comparison delta).
+
+    Always shows an explicit sign for positive values so the direction is
+    unambiguous at a glance; negative values already carry their own `-` via
+    the format spec, zero shows no sign.
+    """
+    if value is None:
+        return NO_DATA_DISPLAY
+    sign = "+" if value > 0 else ""
+    return f"{sign}{value:.{decimals}f}"
