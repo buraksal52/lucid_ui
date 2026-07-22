@@ -1,6 +1,6 @@
 # Known Limitations
 
-This document collects limitations that apply broadly across the LucidUI deterministic metric engine, beyond the per-metric limitations already listed in [metric-catalog.md](metric-catalog.md). It exists so that every consumer of LucidUI's output — the LLM interpretation stage, the frontend, and researchers — has a single place to understand what the numbers do and do not mean.
+This document collects limitations that apply broadly across the LucidUI deterministic metric engine, beyond the per-metric limitations already listed in [metric-catalog.md](metric-catalog.md). It exists so that every consumer of LucidUI's output — the LLM interpretation stage, the frontend, and researchers — has a single place to understand what the numbers do and do not mean. See [reliability-tiers.md](reliability-tiers.md) for how these limitations translate into a per-metric Sound / Approximately Correct / Problematic classification.
 
 ## Measurement Limitations
 

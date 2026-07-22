@@ -2,7 +2,7 @@
 
 This catalog documents every metric planned for the LucidUI deterministic analysis engine. Each entry follows a consistent structure: Purpose, Why LucidUI Uses It, Inputs, Outputs, Method, Reference or Scientific Basis, Interpretation, Proxy Status, Known Limitations.
 
-See [scoring-and-normalization.md](scoring-and-normalization.md) for how these combine into a composite score, [known-limitations.md](known-limitations.md) for cross-cutting caveats, and [scientific-references.md](scientific-references.md) for full citations. See [terminology.md](../product/terminology.md) for definitions of "raw metric," "normalized signal," and "proxy metric."
+See [scoring-and-normalization.md](scoring-and-normalization.md) for how these combine into a composite score, [known-limitations.md](known-limitations.md) for cross-cutting caveats, [reliability-tiers.md](reliability-tiers.md) for a per-metric Sound / Approximately Correct / Problematic classification, and [scientific-references.md](scientific-references.md) for full citations. See [terminology.md](../product/terminology.md) for definitions of "raw metric," "normalized signal," and "proxy metric."
 
 ---
 

@@ -1,89 +1,77 @@
 # LucidUI
 
-LucidUI is a research-oriented UI analysis system that compares two independent approaches to evaluating interface screenshots: a deterministic, explainable metric engine and UIClip, a learned vision-language model. An LLM interprets the deterministic metrics, and a Comparison Engine reports where the two evaluators agree or diverge.
+LucidUI looks at a screenshot of a user interface and reports what it measures — contrast, clutter, text density, element sizes, and more — without declaring the design "good" or "bad." It also runs a second, independent AI model (UIClip) on the same screenshot, and an LLM explains the numbers in plain language. Everything is shown side by side so a human can decide what it means.
 
-## Flashlight, Not a Judge
+## Why "Flashlight, Not a Judge"
 
-LucidUI never declares a UI objectively good, bad, correct, or beautiful. It reports measurable signals, proxy metrics, threshold comparisons, and model observations — always with hedged, non-verdict language ("above/below a reference threshold," "potential review area," "proxy signal"). See [docs/product/terminology.md](docs/product/terminology.md) and [CLAUDE.md](CLAUDE.md).
+LucidUI never says a UI is objectively good, bad, ugly, or correct. It only reports things like "this text is below the recommended contrast threshold" or "this button is smaller than the usual minimum touch size." Think of it as a flashlight that points at things worth looking at — not a judge that hands down a verdict. See [CLAUDE.md](CLAUDE.md) for the full set of rules this project follows.
 
-## Planned Pipeline
+## How a Screenshot Flows Through the System
 
 ```text
-Image Upload
-     |
-     v
-Validation and In-Memory Decoding
-     |
-     +----------------------------+
-     |                            |
-     v                            v
-LucidUI Metric Engine       UIClip Evaluator
-     |                            |
-     v                            v
-Deterministic Metric JSON   UIClip Result JSON
-     |
-     v
-LLM Interpretation
-     |
-     +-------------+
-                   |
-                   v
-           Comparison Engine
-                   |
-                   v
-             Final Report
+1. You upload a screenshot
+2. LucidUI measures it directly           UIClip (an independent AI model)
+   (contrast, clutter, element sizes...)   scores it, separately
+              |                                      |
+              v                                      v
+      Deterministic metrics                    UIClip's own score
+              |
+              v
+      An LLM explains the metrics in plain language
+              |
+              v
+        You get one combined report
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the full architectural explanation.
+The deterministic metrics and UIClip never see each other's output while they're computed — they run independently, so neither one can bias the other. See [ARCHITECTURE.md](ARCHITECTURE.md) for the full technical breakdown.
 
-## Current Project Status: Phase 4
+## What Works Today
 
-Phase 0 (documentation and architecture foundation), Phase 1 (FastAPI foundation), Phase 2A (image processing infrastructure), Phase 2B (the deterministic metric engine), Phase 3 (LLM interpretation), and Phase 4 (UIClip adapter foundation) are complete. `POST /api/v1/analyses/single` now runs the full pipeline: validate → decode → `MetricEngine.analyze()` (real legacy metrics, OCR included) → `LLMInterpretationService.interpret()` (real, deterministic-metric-grounded natural-language interpretation) → `UIClipEvaluationService.evaluate()` (independent image + description evaluation) → persist → return a full `AnalysisReport`. `GET /api/v1/analyses/{id}` and `/raw` return real, previously-computed reports, including both the LLM interpretation and the UIClip evaluation.
+- **Upload one screenshot** (`POST /api/v1/analyses/single`) and get back a full report: measurements, an LLM explanation, and an independent UIClip score.
+- **Upload two screenshots to compare** (`POST /api/v1/analyses/variants`) — useful for "which version of this screen is better in which specific ways" — both are analyzed independently and the differences are highlighted.
+- **Look up a past report** (`GET /api/v1/analyses/{id}`).
+- **A React dashboard** (`frontend/`) that displays all of the above — upload, view a single report, or compare two screenshots side by side.
 
-The LLM is an **interpreter only** — it never computes metrics, never invents evidence, and never receives the uploaded image or any screenshot; only the already-JSON-safe deterministic metric output and the analysis context (`general`/`expert`). It defaults to a deterministic, offline `MockLLMProvider` (no API key needed); setting `LLM_PROVIDER=gemini` plus `GEMINI_API_KEY` switches to a real Google Gemini provider. If the LLM fails or is unavailable for any reason, the deterministic analysis is still returned — `llmInterpretation.status` becomes `unavailable`/`failed` rather than discarding the rest of the report.
+## What's Deliberately Not There Yet
 
-UIClip is an **independent learned evaluator** — never ground truth, never merged with or compared against LucidUI's metrics yet. It receives only the decoded screenshot and the submitted (or documented `generic` fallback) description — never deterministic metrics or LLM output. As of Phase 4 only a deterministic, offline `MockUIClipProvider` exists (`UICLIP_PROVIDER=mock`, the default and only implemented value); **no official/real UIClip model is integrated** — see [docs/research/uiclip-integration.md](docs/research/uiclip-integration.md) for the verified findings on official model/weight availability and why real integration is scoped to Phase 5. `uiclip.normalizedQualityScore` is intentionally always `null`: the official UIClip paper computes an uncalibrated CLIP-style dot-product score with no confirmed universal 0-100/0-1 normalization, so none is invented here. `comparison` remains an `unavailable` placeholder — agreement/difference computation is Phase 6.
+- **A side-by-side "do LucidUI and UIClip agree?" comparison.** Both scores are shown, but nothing yet calculates whether they agree or point out where they diverge — no agreement/disagreement logic has been built.
+- **Saving reports to a real database.** Reports currently live in memory and disappear on restart.
+- **Production hardening** — Docker, rate limiting, deployment docs.
 
-OCR uses `pytesseract` when the external `tesseract` binary is available on the host. If OCR cannot run, LucidUI continues with empty OCR data so OCR-dependent metrics report no detected text rather than failing the whole analysis. See [ROADMAP.md](ROADMAP.md) for the full phased plan.
+See [ROADMAP.md](ROADMAP.md) for the detailed, phase-by-phase plan (note: a couple of its checklist items are ahead of what's actually wired up yet — when in doubt, this README and the code are the source of truth).
 
-`AnalysisReport` also carries an additive, backward-compatible `presentation` field: a ready-to-render view over `lucidui`/`llmInterpretation`/`uiclip`, built once by a small pure formatter (`app/presentation/report_builder.py`) after those sections are already computed — no metric is recomputed and no provider is called again. It exists so the frontend only has to render, not interpret metrics, map fields, or compute scores itself — see [docs/api/presentation-schema.md](docs/api/presentation-schema.md).
+## The Three Independent Pieces
 
-## Planned Features
+1. **The metric engine** — plain computer vision and OCR (contrast, clutter, element sizes, text density, and more). No AI model involved; every number is explainable and traceable back to the pixels. See [docs/metrics/metric-catalog.md](docs/metrics/metric-catalog.md) for what each one measures, and [docs/metrics/reliability-tiers.md](docs/metrics/reliability-tiers.md) for how much to trust each one — some are solid, some are approximate, and a few have known weak spots.
+2. **UIClip** — a separately trained AI model (not built by this project) that scores a screenshot on its own. It's an opinion to compare against, never treated as the "correct" answer. Defaults to a lightweight offline stand-in; the real model can be turned on (see Setup below).
+3. **The LLM interpretation layer** — reads only the metric engine's numbers (never the screenshot itself) and explains them in plain language. It can only talk about what the numbers actually say — it's not allowed to invent findings.
 
-- Deterministic UI metric analysis (contrast, edge density, element density, Hick's/Fitts's Law estimates, whitespace, alignment, colorfulness, visual balance, and more — see [docs/metrics/metric-catalog.md](docs/metrics/metric-catalog.md)).
-- LLM interpretation of deterministic metrics, grounded in metric evidence.
-- UIClip evaluation as an independent, learned UI preference signal.
-- Agreement/discrepancy comparison between LucidUI and UIClip (Phase 6, not yet implemented — `comparison.agreementLevel` is always `"unavailable"`).
-- Two-image variant comparison (`POST /api/v1/analyses/variants`, Phase 7, implemented): both images analyzed independently, concurrently, plus relative deltas — see [docs/api/api-contract.md](docs/api/api-contract.md) and [docs/product/terminology.md](docs/product/terminology.md).
-- A React dashboard visualizing all of the above without re-deriving any scores client-side.
+## Privacy
 
-## Privacy Principles
+- Screenshots are processed in memory and are never written to disk by default.
+- The LLM never sees your screenshot — only the computed numbers.
+- UIClip runs locally rather than being sent to a third-party API.
 
-- Raw screenshots are processed locally, inside the backend.
-- Uploaded images are not written to disk by default.
-- Raw screenshots are never sent to the LLM provider — only deterministic metric JSON is.
-- UIClip is planned to run locally, not as a hosted third-party API call.
+Full details: [docs/architecture/privacy-model.md](docs/architecture/privacy-model.md).
 
-See [docs/architecture/privacy-model.md](docs/architecture/privacy-model.md) for the full model.
+## Running It Locally
 
-## Local Setup (Backend, Phase 4)
-
-The backend is a FastAPI application under `backend/`. `POST /api/v1/analyses/single` accepts an uploaded image, decodes it, runs the real deterministic metric engine (`app.metrics.MetricEngine`), interprets the result with `app.llm.LLMInterpretationService`, evaluates the image independently with `app.uiclip.UIClipEvaluationService`, persists the resulting report, and returns it. Only a mock UIClip evaluator exists — no official/real model is loaded yet (Phase 5).
+### Backend
 
 ```bash
 cd backend
 python -m venv .venv
 source .venv/bin/activate      # macOS/Linux
-# .venv\Scripts\activate       # Windows (cmd/PowerShell)
+# .venv\Scripts\activate       # Windows
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-**External dependency (OCR)**: the metric engine's OCR stage uses `pytesseract`, a thin Python wrapper around the `tesseract` command-line binary. `pip install -r requirements.txt` installs the Python wrapper only. Install the `tesseract` binary separately on the host (e.g. `brew install tesseract` on macOS, `apt-get install tesseract-ocr` on Debian/Ubuntu) to enable OCR-backed text metrics. If it is missing or fails, analysis still returns a report with empty OCR data for OCR-dependent fields.
+By default, both the LLM step and UIClip step run in offline "mock" mode — no API key, no model download, no network calls, so everything works out of the box. Copy `backend/.env.example` to `backend/.env` to turn on the real providers:
 
-**LLM configuration**: `LLM_PROVIDER` defaults to `mock` — a deterministic, offline provider that needs no API key and never makes a network call, so the app and test suite run out of the box. Set `LLM_PROVIDER=gemini` and `GEMINI_API_KEY=<your key>` (see `.env.example`) to use a real Google Gemini model instead; if `gemini` is selected without a key, LLM interpretation reports `unavailable` rather than failing the request. Screenshots are never sent to any LLM provider — only deterministic metric JSON and the analysis context.
-
-**UIClip configuration**: `UICLIP_PROVIDER` defaults to `mock` — a deterministic, offline evaluator that needs no model download and never makes a network call. It is currently the *only* implemented value; setting it to anything else gracefully degrades to `uiclip.status = "unavailable"` rather than raising. UIClip receives only the decoded screenshot and the submitted `description` form field (or a documented generic fallback if omitted) — never the deterministic metrics or LLM output.
+- **Real LLM explanations**: set `LLM_PROVIDER=gemini` and add a `GEMINI_API_KEY`.
+- **Real UIClip model**: set `UICLIP_PROVIDER=huggingface` (downloads the official model from Hugging Face on first use).
+- **OCR** (needed for text-related metrics): install the `tesseract` command-line tool separately (`brew install tesseract` on macOS, `apt-get install tesseract-ocr` on Debian/Ubuntu). If it's missing, analysis still works — text metrics just come back empty instead of failing the whole request.
 
 Once running:
 
@@ -93,53 +81,51 @@ Swagger:  http://localhost:8000/docs
 Health:   http://localhost:8000/api/v1/health
 ```
 
-Run the backend test suite:
+Run the tests:
 
 ```bash
 cd backend
 python -m pytest
 ```
 
-## Repository Structure
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The frontend expects the backend running at `http://localhost:8000`. It's built independently against the documented API contract — see [docs/frontend/FRONTEND_GUIDE.md](docs/frontend/FRONTEND_GUIDE.md).
+
+## Repository Layout
 
 ```text
 lucidui/
-├── CLAUDE.md              Rules and workflow for Claude Code
-├── README.md              This file
-├── ROADMAP.md              Phased development plan
-├── ARCHITECTURE.md         Architecture overview
+├── CLAUDE.md       Rules this project follows during development
+├── README.md       This file
+├── ROADMAP.md      Phase-by-phase plan
+├── ARCHITECTURE.md Full architecture explanation
 │
-├── backend/                FastAPI application (Phase 4 — deterministic analysis + LLM interpretation + mock UIClip; no real UIClip model yet)
-├── frontend/                (empty — not implemented yet)
-├── samples/                 (empty — reserved for sample screenshots)
+├── backend/        FastAPI application — metrics, LLM, UIClip, API
+├── frontend/        React dashboard
+├── samples/          Reserved for sample screenshots
 │
 └── docs/
-    ├── product/              Product scope, terminology, non-goals
-    ├── architecture/          System overview, pipeline, privacy model, ADRs
-    ├── metrics/               Metric catalog, scoring, limitations, references
-    ├── api/                   API contract, report schema, error codes, examples
-    ├── frontend/              Frontend guide, data mapping, UI states, components
-    └── research/              Research questions, UIClip integration, evaluation plan
+    ├── product/        What LucidUI is and isn't, terminology
+    ├── architecture/    System design, privacy model, decision records
+    ├── metrics/         Every metric explained, plus how reliable each one is
+    ├── api/             API contract and report format
+    ├── frontend/        Guide for frontend development
+    └── research/        Open research questions, evaluation plans
 ```
 
-## Documentation Links
+## Where to Read More
 
-- [CLAUDE.md](CLAUDE.md) — mandatory rules for future development.
-- [ROADMAP.md](ROADMAP.md) — phased plan, Phase 0 through Phase 11.
-- [ARCHITECTURE.md](ARCHITECTURE.md) — architecture overview and dependency direction.
 - [docs/product/product-scope.md](docs/product/product-scope.md) — what LucidUI is and isn't.
-- [docs/metrics/metric-catalog.md](docs/metrics/metric-catalog.md) — every planned metric, with purpose and limitations.
-- [docs/api/api-contract.md](docs/api/api-contract.md) — planned API endpoints.
-- [docs/api/report-schema.md](docs/api/report-schema.md) — planned analysis report shape.
-- [docs/frontend/FRONTEND_GUIDE.md](docs/frontend/FRONTEND_GUIDE.md) — guide for independent frontend development.
-- [docs/research/research-questions.md](docs/research/research-questions.md) — open research questions this project is designed to eventually help answer.
-
-## Development Phases
-
-See [ROADMAP.md](ROADMAP.md) for the complete list. In short: Phase 0 (documentation, current) → Phase 1 (FastAPI foundation) → Phase 2 (deterministic metric engine) → Phase 3 (LLM interpretation) → Phase 4–5 (UIClip integration) → Phase 6–7 (comparison and variant analysis) → Phase 8 (developer tools) → Phase 9 (persistence) → Phase 10 (research benchmarking) → Phase 11 (production readiness).
-
-## Status Note
-
-The backend (`backend/`) is runnable. Phase 1 delivered the FastAPI foundation: routing, configuration, structured errors, and an in-memory repository. Phase 2A added real image upload: `POST /api/v1/analyses/single` validates (MIME type, size, corruption) and decodes an uploaded JPEG/PNG/WebP entirely in memory — never written to disk. Phase 2B added `app.metrics.MetricEngine`, a production-facing adapter around the validated legacy deterministic metric engine (`backend/reference/legacy_metric_engine.py`, immutable — see [CLAUDE.md](CLAUDE.md)), wired into the endpoint and covered by regression-equivalence tests. Phase 3 added `app.llm.LLMInterpretationService`: it builds a JSON-only prompt from the deterministic metric result (never the image), calls a configured `LLMProvider` (mock by default, real Gemini when configured), validates the structured response (including a metric-evidence check), and populates `AnalysisReport.llmInterpretation`. Any LLM failure degrades gracefully — the deterministic report is always returned regardless.
-
-Phase 4 added `app.uiclip.UIClipEvaluationService`: it resolves the description source (`user` if submitted, the already-documented `generic` fallback otherwise), calls a configured `UIClipProvider` (mock only, for now) with the decoded image and description, validates the response, and populates `AnalysisReport.uiclip`. UIClip is independent of both LucidUI's metrics and the LLM's output — neither module can see the other's data. Only `MockUIClipProvider` exists; the official UIClip model (arXiv:2404.12500, weights on Hugging Face under `biglab/`, MIT licensed) was researched but not integrated — no verified official inference repository was found, the exact score-normalization procedure is unconfirmed from primary source, and real integration (model loading, sliding-window inference) was already scoped to Phase 5 by [ADR-005](docs/architecture/decisions/ADR-005-mock-providers-before-real-integrations.md) before this phase began. `comparison.agreementLevel` remains `unavailable` — agreement/discrepancy computation is Phase 6 (see [ROADMAP.md](ROADMAP.md)). The frontend (`frontend/`) is still not implemented.
+- [docs/metrics/metric-catalog.md](docs/metrics/metric-catalog.md) — every metric, explained.
+- [docs/metrics/reliability-tiers.md](docs/metrics/reliability-tiers.md) — which metrics to trust, and which to take with a grain of salt.
+- [docs/api/api-contract.md](docs/api/api-contract.md) — the API endpoints.
+- [docs/api/report-schema.md](docs/api/report-schema.md) — the shape of a full analysis report.
+- [docs/frontend/FRONTEND_GUIDE.md](docs/frontend/FRONTEND_GUIDE.md) — building against the API without needing the backend running.
+- [ROADMAP.md](ROADMAP.md) — the detailed phase-by-phase plan.
