@@ -21,7 +21,7 @@ class MockLLMProvider:
         return {
             "summary": (
                 "LucidUI's deterministic metric engine computed a composite proxy signal "
-                "for this screenshot from contrast, clutter, element, and layout measurements. "
+                "for this screenshot from contrast, element, and text density measurements. "
                 "This is a placeholder interpretation from the mock provider, not a live model response."
             ),
             "observations": [
@@ -37,17 +37,18 @@ class MockLLMProvider:
                 {
                     "id": "obs-2",
                     "text": (
-                        "Contrast and clutter were measured against fixed reference thresholds "
-                        "as detected, screenshot-based proxy signals."
+                        "Contrast and text density were measured against fixed reference "
+                        "thresholds as detected, screenshot-based proxy signals."
                     ),
-                    "metric_evidence": ["lucidui.raw.contrast", "lucidui.raw.clutter"],
+                    "metric_evidence": ["lucidui.raw.contrast", "lucidui.raw.textDensity"],
                     "category": "observation",
                 },
             ],
             "recommendations": [
                 (
-                    "Review the raw metric values in lucidui.raw for any measurements below "
-                    "their documented reference thresholds as a possible review area."
+                    "Reviewing the raw metric values in lucidui.raw against their documented "
+                    "reference thresholds could help identify possible review areas, since "
+                    "values below threshold are flagged as such rather than confirmed issues."
                 ),
             ],
             "limitations": [

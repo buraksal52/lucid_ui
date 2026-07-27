@@ -3,10 +3,12 @@
 Wraps the legacy engine's `raw` / `normalized` / `additionalSignals` output
 (backend/reference/legacy_metric_engine.py) plus the weighted composite
 score. Nested legacy field names (e.g. `averageContrastRatio`,
-`hicksLawEstimateMs`, `estimatedGroupCount`) are preserved exactly as
-flexible dictionaries — this model must never rename or drop a legacy
-field; only the outer field names use CamelModel's camelCase aliasing.
-See docs/metrics/scoring-and-normalization.md.
+`interactiveTargetCount`, `estimatedGroupCount`) are preserved exactly as
+flexible dictionaries — this model must never rename or drop a field
+without explicit instruction; only the outer field names use CamelModel's
+camelCase aliasing. (Exception: `corrected-v4` removed every Tier 3 field
+per docs/metrics/reliability-tiers.md, per explicit user instruction — see
+`app.metrics.corrected`'s Fix 15.) See docs/metrics/scoring-and-normalization.md.
 """
 
 from typing import Any

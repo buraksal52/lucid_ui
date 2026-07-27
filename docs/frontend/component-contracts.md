@@ -47,8 +47,9 @@ Proposed component responsibilities for the React frontend. See [FRONTEND_GUIDE.
 - **Purpose**: Render one entry from `presentation.metricSections[]` (e.g. Contrast, Visual Complexity/Edge Density) — see [presentation-schema.md](../api/presentation-schema.md) for the full fixed-order list.
 - **Required data**: One `presentation.metricSections[]` entry: `id`, `title`, `category`, `rawDisplay` (render verbatim, it is already formatted, e.g. `"1.27:1"`, `"74.75%"`), `explanation` (render verbatim; never `null`).
 - **Optional data**: `normalizedScore` (may be `null` — not every metric has one, by design, not by omission), `source` (may be `null`), `isProxy`.
-- **Empty state**: N/A — exactly 10 entries are always present, in the same fixed order, on every report.
+- **Empty state**: N/A — exactly 7 entries are always present, in the same fixed order, on every report (as of `corrected-v4`; see [reliability-tiers.md](../metrics/reliability-tiers.md) for the removed Tier 3 sections).
 - **Error state**: N/A — there is no missing-metric case for this component; a `null` `normalizedScore`/`source` is a normal, expected value, not an error.
+- **Known follow-up (not built this pass)**: some `source` strings (e.g. the `elements` section's) are long and implementation-heavy for a primary-dashboard card — see the raw JSON in [examples/single-analysis-response.json](../api/examples/single-analysis-response.json). A future pass should collapse the full `source` text behind a `<details>`/expandable affordance, defaulting closed, without altering the rest of the card's layout or classes — deliberately deferred to avoid a frontend redesign as a side effect of the Interpretation Hardening pass.
 
 ## MetricDetailDrawer (raw/technical view only)
 
@@ -116,7 +117,7 @@ Proposed component responsibilities for the React frontend. See [FRONTEND_GUIDE.
 - **Purpose**: Render `deltas` from a `VariantAnalysisReport` — relative differences between variant A and variant B, verbatim, with no client-side computation.
 - **Required data**: `deltas.metricDeltas[]` (`id`, `title`, `category`, `rawDisplayA`, `rawDisplayB`, `direction`), `deltas.compositeScoreDeltaDisplay`, `deltas.uiclipRawScoreDeltaDisplay`, `deltas.note`.
 - **Optional data**: `deltas.metricDeltas[].normalizedScoreDelta`/`deltas.compositeScoreDelta`/`deltas.uiclipRawScoreDelta` (the raw numeric deltas, `null` when not available — the pre-formatted `*Display` strings are what should actually be shown to the user).
-- **Empty state**: N/A — `metricDeltas` always has exactly the same fixed 10 entries as `presentation.metricSections`.
+- **Empty state**: N/A — `metricDeltas` always has exactly the same fixed 7 entries as `presentation.metricSections` (as of `corrected-v4`).
 - **Error state**: A `null` delta (rendered via its `*Display`/`"not_available"` counterpart) is a normal, expected value when either variant didn't produce that signal — never treated as a defect. `direction` must be rendered as `higher`/`lower`/`equal`/`not_available` language only — never `better`/`worse`, per CLAUDE.md ("Flashlight, Not a Judge") and the Language Guidelines in [FRONTEND_GUIDE.md](FRONTEND_GUIDE.md).
 
 ## ErrorBanner

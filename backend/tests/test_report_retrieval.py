@@ -38,7 +38,7 @@ def test_retrieved_report_contains_real_metric_output(client: TestClient, valid_
 
     response = client.get(f"/api/v1/analyses/{analysis_id}")
     body = response.json()
-    assert body["lucidui"]["metricEngineVersion"] == "corrected-v3"
+    assert body["lucidui"]["metricEngineVersion"] == "corrected-v4"
     assert isinstance(body["lucidui"]["weightedScore"], float)
     # LLM and UIClip mock providers both complete by default.
     assert body["status"] == "completed"

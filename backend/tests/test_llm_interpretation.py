@@ -83,6 +83,28 @@ def test_system_prompt_instructs_hedged_non_verdict_language() -> None:
         assert forbidden_word not in other_lines
 
 
+def test_system_prompt_encodes_the_interpretation_taxonomy() -> None:
+    """Task requirement F.7: the prompt must explicitly encode the
+    descriptive/diagnostic/actionable restrictions, not just rely on the
+    deterministic guard (app.llm.interpretation_guard) as a silent backstop."""
+    system_prompt, _ = build_prompt(
+        DeterministicMetricResult(raw={}, normalized={}, additional_signals={}, weighted_score=0.0),
+        AnalysisContext.GENERAL,
+    )
+    lowered = system_prompt.lower()
+    for required_phrase in [
+        "actionable",
+        "diagnostic",
+        "descriptive",
+        "measurement does not imply optimization direction",
+        "7±2",
+        "cognitive load",
+        "miller",
+        "colorfulness and hue diversity are not monotonic",
+    ]:
+        assert required_phrase.lower() in lowered
+
+
 # ---------- Mock provider ----------
 
 
@@ -149,6 +171,69 @@ def test_provider_receives_only_prompt_strings(metric_result: DeterministicMetri
     assert "averageContrastRatio" in captured["user_prompt"]
     for forbidden in ["DecodedImage", "cv2_image", "pil_image", "raw_bytes"]:
         assert forbidden not in captured["user_prompt"]
+
+
+# ---------- Service: deterministic interpretation guard (app.llm.interpretation_guard) ----------
+
+
+def test_service_filters_unsupported_content_and_keeps_justified_ones(
+    metric_result: DeterministicMetricResult,
+) -> None:
+    """End-to-end reproduction of the real Gemini output that motivated the
+    interpretation-hardening pass: a response mixing a justified contrast
+    recommendation with an unsupported groupCount-cognitive-load one, and a
+    justified observation with an unsupported visual-balance one. The
+    service must keep only the justified content and disclose the removal."""
+
+    justified_recommendation = "Reviewing regions below the AA contrast threshold could improve accessibility."
+    unsupported_recommendation = (
+        "Considering the estimated group count, organizing interactive elements into logical "
+        "groupings could potentially improve information chunking and reduce cognitive load."
+    )
+    justified_observation_text = "The average contrast ratio across detected regions is high."
+    unsupported_observation_text = "The UI shows good visual balance, with a low asymmetry score."
+
+    class MixedProvider:
+        name = "mixed"
+
+        def complete(self, system_prompt: str, user_prompt: str) -> dict:
+            return {
+                "summary": "This UI has a high overall contrast ratio. The visual balance appears good.",
+                "observations": [
+                    {
+                        "id": "obs-1",
+                        "text": justified_observation_text,
+                        "metric_evidence": ["lucidui.raw.contrast.averageContrastRatio"],
+                        "category": "observation",
+                    },
+                    {
+                        "id": "obs-2",
+                        "text": unsupported_observation_text,
+                        "metric_evidence": ["lucidui.additionalSignals.visualBalance.asymmetryScore"],
+                        "category": "observation",
+                    },
+                ],
+                "recommendations": [justified_recommendation, unsupported_recommendation],
+                "limitations": ["Every metric is a proxy signal."],
+            }
+
+    service = LLMInterpretationService(provider=MixedProvider(), provider_name="mixed")
+    result = service.interpret(metric_result, AnalysisContext.GENERAL)
+
+    assert result.status == LLMStatus.COMPLETED
+    assert result.recommendations == [justified_recommendation]
+    assert [observation.text for observation in result.observations] == [justified_observation_text]
+    assert "high overall contrast ratio" in result.summary
+    assert "good" not in result.summary.lower()
+    assert any("interpretation rules" in limitation for limitation in result.limitations)
+
+
+def test_service_does_not_add_disclosure_when_nothing_is_filtered(
+    metric_result: DeterministicMetricResult,
+) -> None:
+    service = LLMInterpretationService(provider=MockLLMProvider(), provider_name="mock")
+    result = service.interpret(metric_result, AnalysisContext.GENERAL)
+    assert not any("interpretation rules" in limitation for limitation in result.limitations)
 
 
 # ---------- Service: failure handling (must always degrade, never raise) ----------

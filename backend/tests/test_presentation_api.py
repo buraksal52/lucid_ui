@@ -32,12 +32,9 @@ ENDPOINT = "/api/v1/analyses/single"
 
 _EXPECTED_SECTION_IDS = [
     "contrast",
-    "visual-complexity",
-    "elements-target-size",
-    "hicks-law",
+    "elements",
     "grouping",
     "text-density",
-    "whitespace-alignment",
     "colorfulness",
     "fitts-law",
     "visual-balance",

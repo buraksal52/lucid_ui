@@ -38,7 +38,7 @@ def test_valid_two_image_upload_succeeds(
     assert body["variantA"]["status"] == "completed"
     assert body["variantB"]["status"] == "completed"
     assert body["status"] == "completed"
-    assert len(body["deltas"]["metricDeltas"]) == 10
+    assert len(body["deltas"]["metricDeltas"]) == 7
 
 
 def test_response_uses_camel_case_fields(

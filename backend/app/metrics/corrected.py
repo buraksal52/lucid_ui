@@ -135,8 +135,35 @@ Post-audit follow-up fixes (independent re-verification of #3/#6 above):
     `contourBasedCount` is untouched — the keyboard's key ink is still a
     real visual contour, it is just never an interactive target.
 
+15. Tier 3 ("Problematic") metric removal — an explicit, user-instructed
+    pass (not an audit fix) per docs/metrics/reliability-tiers.md: for
+    research-paper defensibility, every metric classified Tier 3 there was
+    removed from the engine/API entirely, not just excluded from reporting.
+    Removed: `hicksLawEstimateMs`/`hicksLawBConstantMs` and
+    `smallTargetsBelow44px` from `analyze_elements_v2`'s output (the
+    computations themselves are deleted, not just hidden); the standalone
+    `repeatingGridExcludedCount` disclosure field (the underlying
+    `_detect_repeating_grid_indices` filtering is kept — it still improves
+    `interactiveTargets`/Fitts's Law, neither of which is Tier 3);
+    `analyze_whitespace_alignment_v2` (`whitespaceRatio`,
+    `alignmentVariance`, `alignedElementRatio` were all Tier 3) — the
+    function is left defined below, unused, for the same audit-trail reason
+    every prior superseded version is kept; `analyze_clutter` (`edgeDensity`,
+    Tier 3) is no longer called from `MetricEngine` (it lives in, and is
+    untouched in, the immutable legacy module). The composite score's
+    `clutter`/`elementSize`/`groupCount` components are dropped accordingly
+    — see `WEIGHTS_V2`/`normalize_metrics_v2`/`weighted_score_v2` below,
+    which replace (not modify) the legacy module's `WEIGHTS`/
+    `normalize_metrics`/`weighted_score`, following this module's usual
+    "add a new version, never edit the legacy file" pattern. `contrast_ratio`/
+    `relative_luminance`/`normalize()` are still reused unchanged from the
+    legacy module — none of those are Tier 3.
+
 Composite score weights/normalization bounds and the colorfulness formula
-itself are explicitly out of scope — see docs/metrics/scoring-and-normalization.md.
+itself were explicitly out of scope for the audit passes (Fixes 1-14) —
+see docs/metrics/scoring-and-normalization.md. Fix 15 is the one
+exception, per explicit user instruction (Tier 3 removal), not an audit
+finding.
 """
 
 from typing import Any
@@ -144,7 +171,7 @@ from typing import Any
 import cv2
 import numpy as np
 
-from reference.legacy_metric_engine import contrast_ratio
+from reference.legacy_metric_engine import contrast_ratio, normalize
 
 # ---- Repeating-grid / system-chrome detection (Fix 3, revised — see the
 # "Fix 3b" section below for the full rationale) ----
@@ -1425,17 +1452,6 @@ def analyze_elements_v2(img: np.ndarray, ocr_data: dict) -> tuple[dict[str, Any]
     # like a button gets one consistent answer everywhere.
     interactive_targets, glyph_excluded_debug = _classify_interactive_targets(grid_filtered_contours, ocr_data)
     filtered_n = len(interactive_targets)
-    small_targets = sum(1 for e in interactive_targets if e["w"] < 44 or e["h"] < 44)
-
-    # `b_ms` is an assumed, illustrative constant, NOT a value derived from
-    # Hick (1952) or any other cited empirical source — Hick's original
-    # paper reports information-theoretic bits, not a single universal
-    # millisecond-per-bit constant for arbitrary UIs. Exposed as its own
-    # field (`hicksLawBConstantMs`) and called out in `source` below so this
-    # is never mistaken for a literature-sourced value. See
-    # docs/metrics/scientific-references.md.
-    b_ms = 150
-    hicks_estimate_ms = round(b_ms * np.log2(filtered_n + 1), 1)
 
     system_ui_excluded_count = len(grid_excluded) + keyboard_excluded_count
 
@@ -1471,9 +1487,8 @@ def analyze_elements_v2(img: np.ndarray, ocr_data: dict) -> tuple[dict[str, Any]
         warnings.append(
             "a large, dark, single-color background was detected with additional visual "
             "content on top of it, but zero interactive targets survived filtering — "
-            "smallTargetsBelow44px, hicksLawEstimateMs, and the composite score's elementSize "
-            "component may be silently reporting a clean result for a detection gap rather "
-            "than a genuinely empty screen"
+            "interactiveTargetCount and downstream Fitts's Law data may be silently "
+            "reporting a clean result for a detection gap rather than a genuinely empty screen"
         )
     metrics_status = "degraded" if warnings else "ok"
     warning = "; ".join(warnings) if warnings else None
@@ -1484,7 +1499,6 @@ def analyze_elements_v2(img: np.ndarray, ocr_data: dict) -> tuple[dict[str, Any]
         "ocrBasedCount": ocr_element_count,
         "filteredElementCount": filtered_n,
         "interactiveTargetCount": filtered_n,
-        "repeatingGridExcludedCount": len(grid_excluded),
         "holeContourExcludedCount": contour_debug["holeContourExcludedCount"],
         "backgroundContourExcludedCount": contour_debug["backgroundContourExcludedCount"],
         "duplicateNestedContourExcludedCount": contour_debug["duplicateNestedContourExcludedCount"],
@@ -1503,15 +1517,11 @@ def analyze_elements_v2(img: np.ndarray, ocr_data: dict) -> tuple[dict[str, Any]
         "systemUiExcludedCount": system_ui_excluded_count,
         "metricsStatus": metrics_status,
         "warning": warning,
-        "hicksLawEstimateMs": hicks_estimate_ms,
-        "hicksLawBConstantMs": b_ms,
         "isProxyMetric": True,
-        "smallTargetsBelow44px": small_targets,
         "source": (
-            "Hick's Law (T = b * log2(n+1), b=150ms) computed on filteredElementCount "
-            "(== interactiveTargetCount: contour-sourced elements only, excluding OCR text "
-            "boxes, repeating-grid system chrome disclosed via repeatingGridExcludedCount, "
-            "contours substantially coincident with OCR text ink disclosed via "
+            "interactiveTargetCount (== filteredElementCount) is contour-sourced elements "
+            "only, excluding OCR text boxes, repeating-grid system chrome (e.g. an on-screen "
+            "keyboard), contours substantially coincident with OCR text ink disclosed via "
             "textGlyphContourExcludedCount, and contours inside a confidently detected "
             "system-keyboard region disclosed via keyboardExcludedTargetCount/systemUiRegion — "
             "keyboard detection combines row/width/position geometry with QWERTY-sequence, "
@@ -1522,24 +1532,23 @@ def analyze_elements_v2(img: np.ndarray, ocr_data: dict) -> tuple[dict[str, Any]
             "misses them entirely); interior holes, the background itself, and near-duplicate "
             "nested edges are excluded and disclosed via holeContourExcludedCount/"
             "backgroundContourExcludedCount/duplicateNestedContourExcludedCount; "
-            "interactiveTargets is the identical list shared with Fitts's Law and "
-            "smallTargetsBelow44px so a fix to one can never silently fail to apply to the "
-            "others; small-target check is 44x44 raw screenshot px (corrected-v7). "
-            "hicksLawBConstantMs (b=150ms) is an assumed/illustrative constant, not a value "
-            "derived from Hick (1952) or any cited empirical source — treat hicksLawEstimateMs "
-            "as an uncalibrated relative estimate, not a predicted decision time in real "
-            "milliseconds. The repeating-grid detector's geometric thresholds (row/column "
-            "count floors, size-uniformity and gap-ratio cutoffs) and the keyboard detector's "
-            "signal weights were tuned against a small internal set of real screenshots, not a "
-            "systematic or statistically powered validation study, and may not generalize to "
-            "unseen layouts. Fix D.1: a hole whose immediate parent is a dark, full-bleed "
-            "background contour is recovered as a real element candidate instead of being "
-            "dropped as empty interior space, disclosed via darkBackgroundDetected/"
-            "recoveredFromDarkBackgroundCount — light-theme contour detection (the background "
-            "is never itself foreground under this threshold) is unaffected. If a dark "
-            "background is detected with other visual content present but interactiveTargetCount "
-            "is still 0, metricsStatus degrades to 'degraded' with a warning rather than "
-            "silently presenting a detection gap as a clean, empty screen."
+            "interactiveTargets is the identical list shared with Fitts's Law (corrected-v8) "
+            "so a fix to one can never silently fail to apply to the other. The repeating-grid "
+            "detector's geometric thresholds (row/column count floors, size-uniformity and "
+            "gap-ratio cutoffs) and the keyboard detector's signal weights were tuned against a "
+            "small internal set of real screenshots, not a systematic or statistically powered "
+            "validation study, and may not generalize to unseen layouts. Fix D.1: a hole whose "
+            "immediate parent is a dark, full-bleed background contour is recovered as a real "
+            "element candidate instead of being dropped as empty interior space, disclosed via "
+            "darkBackgroundDetected/recoveredFromDarkBackgroundCount — light-theme contour "
+            "detection (the background is never itself foreground under this threshold) is "
+            "unaffected. If a dark background is detected with other visual content present but "
+            "interactiveTargetCount is still 0, metricsStatus degrades to 'degraded' with a "
+            "warning rather than silently presenting a detection gap as a clean, empty screen. "
+            "hicksLawEstimateMs/hicksLawBConstantMs/smallTargetsBelow44px/"
+            "repeatingGridExcludedCount were removed as of corrected-v8 (Tier 3 / Problematic "
+            "per docs/metrics/reliability-tiers.md); the underlying repeating-grid filtering "
+            "itself is retained since it still improves interactiveTargets/Fitts's Law quality."
         ),
     }
     return elements_meta, elements, interactive_targets
@@ -1807,3 +1816,40 @@ def analyze_hue_diversity(img: np.ndarray) -> dict[str, Any]:
             "replace it (corrected-v1)"
         ),
     }
+
+
+# ---------- Fix 15: composite score after Tier 3 removal ----------
+#
+# `backend/reference/legacy_metric_engine.py`'s `WEIGHTS`/`normalize_metrics`/
+# `weighted_score` are left completely untouched (immutable, per CLAUDE.md)
+# and simply become unused, exactly like its other already-superseded
+# functions (`analyze_contrast`, `analyze_elements`, ...). `clutter`
+# (edgeDensity), `elementSize` (smallTargetsBelow44px), and `groupCount`
+# (`normalize_group_count` — itself flagged as an internal inconsistency in
+# docs/metrics/reliability-tiers.md) are all Tier 3 and are dropped from the
+# composite score entirely, leaving only `contrast` and `textDensity`
+# (both Tier 1/2). Their relative weight is preserved by proportionally
+# rescaling the legacy weights of just those two components back up to 1.0,
+# per context:
+#   general:  contrast 0.25/(0.25+0.20) = 0.5556, textDensity 0.4444
+#   expert:   contrast 0.25/(0.25+0.10) = 0.7143, textDensity 0.2857
+# `normalize()` (the generic 0-100 linear rescale helper) is reused
+# unchanged from the legacy module — it is a correct, general-purpose
+# utility, not itself a Tier 3 item.
+WEIGHTS_V2 = {
+    "general": {"contrast": 0.5556, "textDensity": 0.4444},
+    "expert": {"contrast": 0.7143, "textDensity": 0.2857},
+}
+
+
+def normalize_metrics_v2(raw: dict[str, Any]) -> dict[str, float | None]:
+    return {
+        "contrast": normalize(raw["contrast"]["averageContrastRatio"] or 1, 1, 7),
+        "textDensity": normalize(raw["textDensity"]["textDensityRatio"], 0.02, 0.30, invert=True),
+    }
+
+
+def weighted_score_v2(normalized: dict[str, float | None], context: str) -> float:
+    weights = WEIGHTS_V2.get(context, WEIGHTS_V2["general"])
+    total = sum((normalized.get(k) or 0) * w for k, w in weights.items())
+    return round(total, 1)

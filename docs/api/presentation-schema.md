@@ -37,20 +37,17 @@ It is **additive**: `lucidui`, `llmInterpretation`, `uiclip`, `comparison`, and 
 
 ## Metric Sections (`metricSections`)
 
-Always exactly 10 entries, in this fixed order (mirrors [metric-catalog.md](../metrics/metric-catalog.md)):
+Always exactly 7 entries, in this fixed order (mirrors [metric-catalog.md](../metrics/metric-catalog.md)). As of `schemaVersion: "2.0"`/`metricEngineVersion: "corrected-v4"`, the `visual-complexity`, `hicks-law`, and `whitespace-alignment` sections were removed and `elements-target-size` was reworked into `elements` — every metric backing those sections was classified Tier 3 ("Problematic") in [reliability-tiers.md](../metrics/reliability-tiers.md) and removed from `lucidui` entirely; see [metric-catalog.md](../metrics/metric-catalog.md#removed-metrics-tier-3-corrected-v4).
 
 | # | `id` | Title | Backing `lucidui` data |
 |---|---|---|---|
 | 1 | `contrast` | Contrast | `raw.contrast`, `normalized.contrast` |
-| 2 | `visual-complexity` | Visual Complexity (Edge Density) | `raw.clutter`, `normalized.clutter` |
-| 3 | `elements-target-size` | Elements & Target Size | `raw.elements`, `normalized.elementSize` |
-| 4 | `hicks-law` | Hick's Law Estimate | `raw.elements.hicksLawEstimateMs` |
-| 5 | `grouping` | Grouping (Estimated Group Count) | `raw.groups`, `normalized.groupCount` |
-| 6 | `text-density` | Text Density | `raw.textDensity`, `normalized.textDensity` |
-| 7 | `whitespace-alignment` | Whitespace & Alignment | `raw.whitespaceAlignment` |
-| 8 | `colorfulness` | Colorfulness | `additionalSignals.colorfulness` |
-| 9 | `fitts-law` | Fitts's Law (Index of Difficulty) | `additionalSignals.fittsFullIndexOfDifficulty` |
-| 10 | `visual-balance` | Visual Balance | `additionalSignals.visualBalance` |
+| 2 | `elements` | Detected Elements | `raw.elements` |
+| 3 | `grouping` | Grouping (Estimated Group Count) | `raw.groups` |
+| 4 | `text-density` | Text Density | `raw.textDensity`, `normalized.textDensity` |
+| 5 | `colorfulness` | Colorfulness | `additionalSignals.colorfulness` |
+| 6 | `fitts-law` | Fitts's Law (Index of Difficulty) | `additionalSignals.fittsFullIndexOfDifficulty` |
+| 7 | `visual-balance` | Visual Balance | `additionalSignals.visualBalance` |
 
 Each section:
 
@@ -68,8 +65,8 @@ Each section:
 }
 ```
 
-- **`rawDisplay`** — a pre-formatted string built from the same numeric value already in `lucidui.raw`/`lucidui.additionalSignals`; only the *string* is rounded, never the underlying value. Examples: Contrast `"1.27:1"`, Edge Density `"0.0189"`, Small Targets `"158 / 185"`, Hick Estimate `"1130.9 ms"`, Whitespace `"74.75%"`. When the backing raw value is `null` (e.g. no OCR regions detected), `rawDisplay` is the fixed string `"No data available"`.
-- **`normalizedScore`** — copied from `lucidui.normalized` **only** for metrics the legacy engine actually normalizes (contrast, clutter, elementSize, groupCount, textDensity). For everything else (Hick's Law, whitespace/alignment, colorfulness, Fitts's Law, visual balance) this is always `null` — no normalized score is invented for signals the engine never normalizes.
+- **`rawDisplay`** — a pre-formatted string built from the same numeric value already in `lucidui.raw`/`lucidui.additionalSignals`; only the *string* is rounded, never the underlying value. Examples: Contrast `"1.27:1"`, Detected Elements `"185 elements"`, Text Density `"12.00%"`. When the backing raw value is `null` (e.g. no OCR regions detected), `rawDisplay` is the fixed string `"No data available"`.
+- **`normalizedScore`** — copied from `lucidui.normalized` **only** for metrics `normalize_metrics_v2` actually normalizes (contrast, textDensity — see [scoring-and-normalization.md](../metrics/scoring-and-normalization.md)). For everything else (elements, grouping, colorfulness, Fitts's Law, visual balance) this is always `null` — no normalized score is invented for signals the engine never normalizes.
 - **`explanation`** — see [Observation Matching](#observation-matching) below.
 - **`evidencePaths`** — the `lucidui.*` JSON paths this section is built from, for traceability (and the same path style the LLM cites in `metricEvidence` — see [report-schema.md](report-schema.md)).
 - **`source`** — the underlying metric's `source` string when the legacy engine's raw output includes one; `null` when it doesn't (e.g. `textDensity` has no `source` key upstream — left `null` rather than invented).
@@ -77,7 +74,7 @@ Each section:
 
 ### Observation Matching
 
-Every `llmInterpretation.observations[].metricEvidence` entry is a JSON path such as `"lucidui.raw.contrast.averageContrastRatio"` (see [report-schema.md](report-schema.md)). The builder matches these against each metric section using a fixed set of lowercase substring keywords (e.g. the `contrast` section matches any evidence path containing `"raw.contrast"` or `"normalized.contrast"`). One observation can legitimately populate more than one section's `explanation` if its evidence spans multiple metrics (e.g. an observation citing both `lucidui.raw.contrast` and `lucidui.raw.clutter`). Matched observation text is used verbatim — never rewritten or summarized further.
+Every `llmInterpretation.observations[].metricEvidence` entry is a JSON path such as `"lucidui.raw.contrast.averageContrastRatio"` (see [report-schema.md](report-schema.md)). The builder matches these against each metric section using a fixed set of lowercase substring keywords (e.g. the `contrast` section matches any evidence path containing `"raw.contrast"` or `"normalized.contrast"`). One observation can legitimately populate more than one section's `explanation` if its evidence spans multiple metrics (e.g. an observation citing both `lucidui.raw.contrast` and `lucidui.raw.elements`). Matched observation text is used verbatim — never rewritten or summarized further.
 
 If no observation's evidence matches a section — including whenever the LLM stage did not complete, since `observations` is then always empty — `explanation` falls back to the fixed string `"No LLM interpretation is linked to this metric."` rather than `null` or a scientific claim about the metric. No new LLM call is ever made to fill this gap.
 

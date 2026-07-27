@@ -2,7 +2,7 @@
 
 This catalog documents every metric planned for the LucidUI deterministic analysis engine. Each entry follows a consistent structure: Purpose, Why LucidUI Uses It, Inputs, Outputs, Method, Reference or Scientific Basis, Interpretation, Proxy Status, Known Limitations.
 
-See [scoring-and-normalization.md](scoring-and-normalization.md) for how these combine into a composite score, [known-limitations.md](known-limitations.md) for cross-cutting caveats, [reliability-tiers.md](reliability-tiers.md) for a per-metric Sound / Approximately Correct / Problematic classification, and [scientific-references.md](scientific-references.md) for full citations. See [terminology.md](../product/terminology.md) for definitions of "raw metric," "normalized signal," and "proxy metric."
+See [scoring-and-normalization.md](scoring-and-normalization.md) for how these combine into a composite score, [known-limitations.md](known-limitations.md) for cross-cutting caveats, [reliability-tiers.md](reliability-tiers.md) for a per-metric Sound / Approximately Correct / Problematic classification, [interpretation-taxonomy.md](interpretation-taxonomy.md) for what conclusions the LLM interpretation layer may draw from each metric (Actionable / Diagnostic / Descriptive — a different axis from reliability), and [scientific-references.md](scientific-references.md) for full citations. See [terminology.md](../product/terminology.md) for definitions of "raw metric," "normalized signal," and "proxy metric."
 
 ---
 
@@ -36,39 +36,17 @@ A region is a **confirmed** pass/fail only when both estimates land on the same 
 
 ---
 
-## Edge Density
-
-**Purpose**: Estimate the amount of visual detail/clutter in the interface.
-
-**Why LucidUI Uses It**: Edge density is used in visual-clutter research as a computationally cheap proxy for perceived clutter.
-
-**Inputs**: Decoded image (grayscale).
-
-**Outputs**: Ratio of edge pixels to total pixels (0–1).
-
-**Method**: Canny edge detection, then count edge pixels as a fraction of total image pixels.
-
-**Reference or Scientific Basis**: Rosenholtz, Li, and Nakano's work on measuring visual clutter. See [scientific-references.md](scientific-references.md).
-
-**Interpretation**: Reported as higher or lower edge density relative to other analyzed screens — described as a visual clutter proxy signal, not a clutter verdict.
-
-**Proxy Status**: Proxy. Edge density correlates with, but is not equivalent to, perceived clutter.
-
-**Known Limitations**: Sensitive to image resolution (higher resolution can produce more detected edges) and to the fixed Canny threshold parameters used; not normalized across screen sizes.
-
----
-
 ## Detected Element Count
 
 **Purpose**: Estimate how many distinct visual elements are present in the interface.
 
-**Why LucidUI Uses It**: Serves as an input to element-density and choice-related proxy metrics (e.g. Hick's Law Estimate).
+**Why LucidUI Uses It**: Serves as an input to element-density proxy metrics and to `interactiveTargetCount`, which [Fitts's Law Index of Difficulty](#fittss-law-index-of-difficulty) consumes.
 
 **Inputs**: Decoded image, contour detection output, OCR text box output.
 
-**Outputs**: Integer count of detected elements (contours plus OCR text boxes).
+**Outputs**: Integer count of detected elements (contours plus OCR text boxes); `interactiveTargetCount`/`filteredElementCount` — the contour-sourced subset after excluding repeating-grid system chrome (e.g. an on-screen keyboard) and text-glyph contours.
 
-**Method**: Combine contour-based shape detection with OCR-detected text bounding boxes, applying de-duplication heuristics where regions overlap. `detectedElementCount`/`contourBasedCount`/`ocrBasedCount` are unchanged in `corrected-v1`. **New in `corrected-v1`**: a disclosed heuristic (`filteredElementCount`, `repeatingGridExcludedCount`) additionally detects dense horizontal bands of ≥8 near-uniform-size contour elements (e.g. an on-screen system keyboard) as repeating system chrome and excludes them from the count used by [Hick's Law](#hicks-law-estimate) — a source-code + manual audit found a keyboard contributing 162 of 185 "elements" on one real screenshot, corrupting that downstream estimate by more than 2×. `detectedElementCount` itself is left unchanged for continuity.
+**Method**: Combine contour-based shape detection with OCR-detected text bounding boxes, applying de-duplication heuristics where regions overlap. `detectedElementCount`/`contourBasedCount`/`ocrBasedCount` are unchanged in `corrected-v1`. A disclosed heuristic additionally detects dense horizontal bands of ≥8 near-uniform-size contour elements (e.g. an on-screen system keyboard) as repeating system chrome and excludes them from `interactiveTargetCount` — a source-code + manual audit found a keyboard contributing 162 of 185 "elements" on one real screenshot, corrupting a downstream estimate by more than 2×. `detectedElementCount` itself is left unchanged for continuity. The standalone `repeatingGridExcludedCount` disclosure field was removed as of `corrected-v4` (Tier 3, see [Removed Metrics](#removed-metrics-tier-3-corrected-v4)); the underlying filtering is retained since it still improves `interactiveTargetCount`.
 
 **Reference or Scientific Basis**: General computer-vision contour/text-detection techniques; not tied to a single named publication.
 
@@ -76,51 +54,7 @@ A region is a **confirmed** pass/fail only when both estimates land on the same 
 
 **Proxy Status**: Proxy. Not equivalent to the number of interactive choices a user actually faces, since it counts visual regions, not confirmed interactive controls.
 
-**Known Limitations**: OCR can inflate the count by detecting individual words as separate boxes rather than semantic elements; decorative elements are counted the same as functional ones. The `corrected-v1` repeating-grid exclusion is a heuristic (uniform-height/width band detection) tuned against a small validation set — it can miss non-keyboard repeating grids or, rarely, exclude a genuinely dense app-content row.
-
----
-
-## Hick's Law Estimate
-
-**Purpose**: Provide a proxy estimate of decision-time complexity based on the number of detected elements.
-
-**Why LucidUI Uses It**: Hick's Law is a well-known HCI model relating choice count to decision time, useful as an interpretable, formula-based signal.
-
-**Inputs**: Filtered detected element count (n) — as of `corrected-v1`, `detectedElementCount` minus any repeating-grid system-chrome exclusion (see [Detected Element Count](#detected-element-count)), not the raw count.
-
-**Outputs**: An estimated time value `T`, plus the input count `n` and constant `b` used.
-
-**Method**: `T = b × log2(n + 1)`, where `n` is the filtered detected element count and `b` is a fixed constant (150ms), exposed as its own field (`hicksLawBConstantMs`).
-
-**Reference or Scientific Basis**: Hick's Law (Hick, 1952). See [scientific-references.md](scientific-references.md) — **`b=150ms` itself is an assumed/illustrative constant, not a value derived from Hick's original publication or any other cited empirical source**; Hick (1952) reports information-theoretic bits, not a single universal milliseconds-per-bit constant for arbitrary UIs.
-
-**Interpretation**: Reported strictly as an estimate derived from a proxy element count — must never be presented as measured or actual human reaction time. Detected element count is only a proxy for the number of choices a real user would face. `hicksLawEstimateMs` should be treated as an uncalibrated relative estimate (useful for comparing screens against each other), not a predicted decision time in real milliseconds, because of the `b` caveat above.
-
-**Proxy Status**: Proxy of a proxy — built on the Detected Element Count proxy metric, one further step removed from an actual behavioral measurement. No empirical correlation between this estimate (or its inputs) and real human decision time has been established — see [docs/research/evaluation-plan.md](../research/evaluation-plan.md) for the (not-yet-executed) plan to test this.
-
-**Known Limitations**: Inherits all limitations of Detected Element Count; assumes all detected elements represent equally weighted, independent choices, which is not generally true of real UIs; the `b` constant is unsourced (see above). The repeating-grid exclusion's geometric thresholds (row/column count floors, size-uniformity and gap-ratio cutoffs) were tuned against a small internal set of real screenshots, not a systematic or statistically powered validation study — also disclosed directly in the `elements.source` JSON field, not only here.
-
----
-
-## Small Targets
-
-**Purpose**: Flag detected regions that are smaller than a common minimum touch/click target size.
-
-**Why LucidUI Uses It**: Target size is a well-studied usability factor, especially for touch interfaces.
-
-**Inputs**: Detected element bounding boxes, image DPI/scale assumption.
-
-**Outputs**: Count and list of detected regions below the reference size threshold.
-
-**Method**: Compare each detected element's bounding box dimensions against a 44 × 44 px reference size. **As of `corrected-v1`, only contour-sourced elements are checked** — OCR text-line bounding boxes are excluded from this tally entirely. A source-code + manual audit found ordinary text line-height is almost always under 44px, so counting OCR text boxes here made this flag fire on 93–100% of elements across every audited screenshot, regardless of whether any of them was ever a tap-target candidate.
-
-**Reference or Scientific Basis**: Common mobile platform touch-target guidance (e.g. Apple/Google Human Interface Guidelines use ~44–48 px references). See [scientific-references.md](scientific-references.md) for a TODO on precise sourcing.
-
-**Interpretation**: Reported as "below the 44 × 44 px reference size" as a screenshot-based size signal — a potential review area, not a confirmed usability defect.
-
-**Proxy Status**: Proxy. A screenshot-based pixel size signal only.
-
-**Known Limitations**: Cannot confirm whether a detected region is actually clickable/tappable, nor account for actual device pixel density or viewport scale unless explicitly provided — the 44px comparison is against raw screenshot pixels, not CSS/device-independent points, so it is only meaningful by coincidence unless the capture was taken at 1× scale. `corrected-v1` narrows the check to contour-sourced elements, which removes the text-line-height false-positive source but does not add device-pixel-ratio awareness.
+**Known Limitations**: OCR can inflate the count by detecting individual words as separate boxes rather than semantic elements; decorative elements are counted the same as functional ones. The repeating-grid exclusion is a heuristic (uniform-height/width band detection) tuned against a small validation set — it can miss non-keyboard repeating grids or, rarely, exclude a genuinely dense app-content row.
 
 ---
 
@@ -212,50 +146,6 @@ A region is a **confirmed** pass/fail only when both estimates land on the same 
 
 ---
 
-## Whitespace Ratio
-
-**Purpose**: Estimate how much of the interface is visually "empty" or low-detail space.
-
-**Why LucidUI Uses It**: Whitespace is commonly discussed as a factor in perceived visual clarity.
-
-**Inputs**: Decoded image, local variance map.
-
-**Outputs**: Ratio of low-variance, light ("flat and bright") image blocks to total blocks.
-
-**Method** (`corrected-v1`): Divide the image into blocks, compute local pixel variance and mean brightness per block, and count a block as whitespace-like only when it is **both** low-variance (`< 100`) **and** light (`mean > 200/255`). Previously (`legacy-v1`), only the variance check applied, so a flat *saturated* color region — e.g. a solid brand-color background — counted identically to literal white space; a source-code + manual audit found this materially inflated the ratio on a solid-green screen.
-
-**Reference or Scientific Basis**: General image-variance-based region analysis; not tied to a single named publication.
-
-**Interpretation**: Reported as higher or lower whitespace ratio relative to other analyzed screens.
-
-**Proxy Status**: Proxy. Detects visual flatness *and* lightness, not intentional design whitespace specifically.
-
-**Known Limitations**: Still sensitive to flat, light-colored backgrounds/images that are not actually "whitespace" in the design sense (e.g. a very light-gray hero banner just above the 200/255 threshold); the brightness gate (`corrected-v1`) removes the saturated-color false-positive case but does not attempt to detect design intent.
-
----
-
-## Alignment Variance
-
-**Purpose**: Estimate how consistently detected elements are positionally aligned.
-
-**Why LucidUI Uses It**: Alignment consistency is commonly associated with perceived visual organization.
-
-**Inputs**: Detected element bounding box positions (x/y edges).
-
-**Outputs**: `alignmentVariance` — a single global blended variance of element x/y positions (unchanged, kept for continuity). **New in `corrected-v1`**: `alignedElementRatio` — the fraction of elements whose left (x) or top (y) edge is within 8px of another element's edge.
-
-**Method**: `alignmentVariance` computes `(std(x positions)/width + std(y positions)/height) / 2` over all detected elements combined — a single blended figure that cannot credit multiple independently-valid alignment axes (e.g. a left-aligned column and a separately right-aligned column both registering as "aligned," rather than washing each other out in one global number). `alignedElementRatio` (`corrected-v1`) instead checks, per element, whether it shares an edge with at least one other element, and reports the share of elements that do.
-
-**Reference or Scientific Basis**: General geometric/statistical analysis of detected element positions; not tied to a single named publication.
-
-**Interpretation**: Reported as higher or lower alignment variance/ratio relative to other analyzed screens.
-
-**Proxy Status**: Proxy. Statistical positional variance/proximity, not a grid-system or layout-correctness check.
-
-**Known Limitations**: Does not know the actual underlying grid system used by the designer; intentional asymmetric layouts will register as high variance without being a design flaw. `alignedElementRatio`'s 8px tolerance is a fixed constant, not derived from the analyzed UI's actual grid unit.
-
----
-
 ## Colorfulness
 
 **Purpose**: Estimate the overall color intensity/vividness of the interface.
@@ -319,6 +209,21 @@ A region is a **confirmed** pass/fail only when both estimates land on the same 
 **Proxy Status**: Proxy. Measures brightness distribution only, not semantic or compositional balance (subject placement, visual weight, hierarchy).
 
 **Known Limitations**: A single bright or dark image region (e.g. a photo, a dark-mode panel) can dominate this signal regardless of actual layout balance.
+
+---
+
+## Removed Metrics (Tier 3, `corrected-v4`)
+
+For research-paper defensibility, every metric classified **Problematic** in [reliability-tiers.md](reliability-tiers.md) was removed from the engine/API entirely as of engine version `corrected-v4`, per explicit instruction — not merely excluded from reporting. This section preserves the audit trail so a reader of this catalog knows what used to exist and why it no longer does; see reliability-tiers.md for the full per-metric rationale (each entry there is left in place, marked removed, rather than deleted).
+
+- **Edge Density** (`edgeDensity`) — untouched `legacy-v1` implementation, fixed Canny thresholds, not normalized across screen sizes.
+- **Hick's Law Estimate** (`hicksLawEstimateMs`, `hicksLawBConstantMs`) — the `b=150ms` constant was unsourced, with no empirical correlation to real human decision time ever established ("a proxy of a proxy").
+- **Small Targets** (`smallTargetsBelow44px`) — compared against raw screenshot pixels, never CSS/device-independent pixels, so only meaningful by coincidence at 1× capture scale.
+- **Whitespace Ratio** (`whitespaceRatio`) — systematically light-background-oriented; under-detects intentional empty space on dark-mode or unusually-themed UIs.
+- **Alignment Variance** (`alignmentVariance`, `alignedElementRatio`) — a fixed, unvalidated 8px tolerance that cannot distinguish an inconsistent layout from a deliberately asymmetric one.
+- The composite score's `groupCount` component (`normalize_group_count`) — its own normalization function contradicted this catalog's [Estimated Group Count](#estimated-group-count) interpretation guidance ("must not claim 7 is an ideal target"). The raw `estimatedGroupCount` metric itself is unaffected and still reported — only its use as a composite-score input was removed. See [scoring-and-normalization.md](scoring-and-normalization.md) for the resulting `WEIGHTS_V2`.
+
+`Detected Element Count`'s repeating-grid filtering (previously disclosed via `repeatingGridExcludedCount`) is retained internally — it still improves `interactiveTargetCount`/Fitts's Law, neither of which is Tier 3 — only that standalone disclosure field was removed.
 
 ---
 

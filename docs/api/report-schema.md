@@ -6,7 +6,7 @@ This document defines the structure of an analysis report — the response shape
 
 ```json
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "2.0",
   "analysisId": "uuid",
   "mode": "single",
   "context": "general",
@@ -22,7 +22,7 @@ This document defines the structure of an analysis report — the response shape
 }
 ```
 
-- **`schemaVersion`** — version of this report shape. Increment on any breaking structural change; see [ADR-006](../architecture/decisions/ADR-006-frontend-backend-independence.md).
+- **`schemaVersion`** — version of this report shape. Increment on any breaking structural change; see [ADR-006](../architecture/decisions/ADR-006-frontend-backend-independence.md). Bumped `1.0` → `2.0` when the Tier 3 ("Problematic") metrics were removed from `lucidui`/`presentation` — see [docs/metrics/reliability-tiers.md](../metrics/reliability-tiers.md) and [scoring-and-normalization.md](../metrics/scoring-and-normalization.md).
 - **`analysisId`** — UUID identifying this stored analysis.
 - **`mode`** — always `"single"` today; `"variants"` is reserved for the not-yet-implemented variant-comparison endpoint — see [api-contract.md](api-contract.md) and "Variant-Analysis Report Structure" below.
 - **`context`** — the analysis context used (e.g. `general`, `expert`).
@@ -83,7 +83,7 @@ Returned by `POST /api/v1/analyses/variants` (Phase 7). See [examples/variant-an
 
 ```json
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "2.0",
   "analysisId": "uuid",
   "mode": "variants",
   "context": "general",
@@ -117,7 +117,7 @@ Returned by `POST /api/v1/analyses/variants` (Phase 7). See [examples/variant-an
 - **`deltas`** — relative differences between `variantA` and `variantB`, computed once, server-side, from each variant's already-computed `presentation`/`uiclip` output (see [presentation-schema.md](presentation-schema.md)); the frontend renders these values as-is and never computes or formats a delta itself.
   - **`compositeScoreDelta`**/**`compositeScoreDeltaDisplay`** — variant B's `presentation.composite.value` minus variant A's, plus a pre-formatted signed display string. Always present (the composite score is never null).
   - **`uiclipRawScoreDelta`**/**`uiclipRawScoreDeltaDisplay`** — variant B's `uiclip.qualityScore` minus variant A's (the raw model score, not `normalizedQualityScore`, which is always `null` — see "UIClip Evaluation" in [api-contract.md](api-contract.md)). `null`/`"No data available"` whenever either variant's UIClip stage did not complete.
-  - **`metricDeltas`** — one entry per fixed `presentation.metricSections` entry (same 10, same order, as a single-analysis report). `normalizedScoreDelta` is `null` whenever either variant has no normalized score for that metric (several metric sections never have one, by design — see [presentation-schema.md](presentation-schema.md)). `rawDisplayA`/`rawDisplayB` are each variant's already-formatted `presentation.metricSections[].rawDisplay`, passed through unchanged. `direction` is `"higher"`/`"lower"`/`"equal"`/`"not_available"` — deliberately not `"better"`/`"worse"`, per [CLAUDE.md](../../CLAUDE.md) ("Flashlight, Not a Judge").
+  - **`metricDeltas`** — one entry per fixed `presentation.metricSections` entry (same 7, same order, as a single-analysis report). `normalizedScoreDelta` is `null` whenever either variant has no normalized score for that metric (several metric sections never have one, by design — see [presentation-schema.md](presentation-schema.md)). `rawDisplayA`/`rawDisplayB` are each variant's already-formatted `presentation.metricSections[].rawDisplay`, passed through unchanged. `direction` is `"higher"`/`"lower"`/`"equal"`/`"not_available"` — deliberately not `"better"`/`"worse"`, per [CLAUDE.md](../../CLAUDE.md) ("Flashlight, Not a Judge").
 - **`timings`** — `totalMs` (wall-clock for the whole variant request), `variantAMs`/`variantBMs` (each variant's own `timings.totalMs`, computed concurrently, not additively), `deltasMs` (time spent building `deltas` only).
 - **`status`** — `completed` only when both `variantA.status` and `variantB.status` are `completed`; otherwise `partial_success`, using the same semantics as [single-analysis `status`](#analysis-statuses).
 - **`note`** — a fixed, non-verdict disclaimer that variant A and variant B were analyzed independently and that deltas describe relative differences only.

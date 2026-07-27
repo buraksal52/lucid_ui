@@ -104,16 +104,14 @@ def test_metric_engine_output_is_embedded_in_the_report(client: TestClient, vali
     response = client.post(ENDPOINT, files={"image": ("shot.png", valid_png_bytes, "image/png")})
     body = response.json()
     lucidui = body["lucidui"]
-    assert lucidui["metricEngineVersion"] == "corrected-v3"
+    assert lucidui["metricEngineVersion"] == "corrected-v4"
     assert lucidui["scoreName"] == "LucidUI Composite Signal Score"
     assert set(lucidui["raw"].keys()) == {
         "resolution",
         "contrast",
-        "clutter",
         "elements",
         "groups",
         "textDensity",
-        "whitespaceAlignment",
     }
     assert isinstance(lucidui["weightedScore"], float)
 

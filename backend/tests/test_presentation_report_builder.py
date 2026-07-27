@@ -21,18 +21,13 @@ _RAW = {
         "regionsBelowAAThreshold": 2,
         "source": "WCAG 2.1 AA (4.5:1 normal text)",
     },
-    "clutter": {
-        "edgeDensity": 0.0189,
-        "source": "Rosenholtz, Li & Nakano (2007) - Edge Density proxy",
-    },
     "elements": {
         "detectedElementCount": 185,
         "contourBasedCount": 100,
         "ocrBasedCount": 85,
-        "hicksLawEstimateMs": 1130.9,
+        "interactiveTargetCount": 27,
         "isProxyMetric": True,
-        "smallTargetsBelow44px": 158,
-        "source": "Hick's Law (T = b * log2(n+1), b=150ms); Fitts threshold 44x44px; element count = contour + OCR text blocks",
+        "source": "interactiveTargetCount is contour-sourced elements only, excluding OCR text boxes",
     },
     "groups": {
         "estimatedGroupCount": 7,
@@ -43,11 +38,6 @@ _RAW = {
         "textDensityRatio": 0.12,
         "fontSizeDiversityProxy": 3.4,
         "wordsDetected": 42,
-    },
-    "whitespaceAlignment": {
-        "whitespaceRatio": 0.7475,
-        "alignmentVariance": 0.0421,
-        "source": "Whitespace/Alignment proxy (low-variance block ratio; element position variance)",
     },
 }
 
@@ -68,7 +58,7 @@ _ADDITIONAL_SIGNALS = {
     },
 }
 
-_NORMALIZED = {"contrast": 55.5, "clutter": 62.1, "textDensity": 40.0, "elementSize": 30.0, "groupCount": 100.0}
+_NORMALIZED = {"contrast": 55.5, "textDensity": 40.0}
 
 
 def _metric_result(**overrides) -> DeterministicMetricResult:
@@ -134,12 +124,9 @@ def test_metric_sections_are_in_the_documented_fixed_order() -> None:
     ids = [section.id for section in presentation.metric_sections]
     assert ids == [
         "contrast",
-        "visual-complexity",
-        "elements-target-size",
-        "hicks-law",
+        "elements",
         "grouping",
         "text-density",
-        "whitespace-alignment",
         "colorfulness",
         "fitts-law",
         "visual-balance",
@@ -158,10 +145,7 @@ def test_metric_section_order_is_stable_across_calls() -> None:
 def test_raw_display_formats_match_documented_examples() -> None:
     sections = {s.id: s for s in _build().metric_sections}
     assert sections["contrast"].raw_display == "1.27:1"
-    assert sections["visual-complexity"].raw_display == "0.0189"
-    assert sections["elements-target-size"].raw_display == "158 / 185"
-    assert sections["hicks-law"].raw_display == "1130.9 ms"
-    assert sections["whitespace-alignment"].raw_display == "Whitespace 74.75% · Alignment variance 0.0421"
+    assert sections["elements"].raw_display == "185 elements"
     assert _build().composite.raw_display == "47.8 / 100"
 
 
@@ -182,14 +166,13 @@ def test_raw_display_falls_back_to_no_data_when_value_missing() -> None:
 def test_normalized_score_present_only_for_actually_normalized_metrics() -> None:
     sections = {s.id: s for s in _build().metric_sections}
     assert sections["contrast"].normalized_score == 55.5
-    assert sections["visual-complexity"].normalized_score == 62.1
-    assert sections["elements-target-size"].normalized_score == 30.0
-    assert sections["grouping"].normalized_score == 100.0
     assert sections["text-density"].normalized_score == 40.0
-    # No normalized form exists for these in the legacy engine's
-    # `normalize_metrics` output — must stay null, never invented.
-    assert sections["hicks-law"].normalized_score is None
-    assert sections["whitespace-alignment"].normalized_score is None
+    # `normalize_metrics_v2` (corrected-v4) only computes contrast/textDensity
+    # — clutter/elementSize/groupCount were Tier 3 composite-score inputs
+    # removed per docs/metrics/reliability-tiers.md — must stay null, never
+    # invented.
+    assert sections["elements"].normalized_score is None
+    assert sections["grouping"].normalized_score is None
     assert sections["colorfulness"].normalized_score is None
     assert sections["fitts-law"].normalized_score is None
     assert sections["visual-balance"].normalized_score is None
@@ -202,8 +185,7 @@ def test_source_and_is_proxy_reflect_the_underlying_raw_dict() -> None:
     sections = {s.id: s for s in _build().metric_sections}
     assert sections["contrast"].source == "WCAG 2.1 AA (4.5:1 normal text)"
     assert sections["contrast"].is_proxy is False
-    assert sections["elements-target-size"].is_proxy is True
-    assert sections["hicks-law"].is_proxy is True
+    assert sections["elements"].is_proxy is True
     assert sections["grouping"].is_proxy is True
     assert sections["fitts-law"].is_proxy is True
     assert sections["visual-balance"].is_proxy is False
@@ -229,30 +211,27 @@ def test_observation_evidence_links_to_the_matching_metric_section() -> None:
 def test_one_observation_can_link_to_multiple_sections() -> None:
     obs = LLMObservation(
         id="obs-1",
-        text="Contrast and clutter were both measured as proxy signals.",
-        metric_evidence=["lucidui.raw.contrast", "lucidui.raw.clutter"],
+        text="Contrast and detected elements were both measured as proxy signals.",
+        metric_evidence=["lucidui.raw.contrast", "lucidui.raw.elements"],
         category="observation",
     )
     llm_result = _llm_result(observations=[obs])
     sections = {s.id: s for s in _build(llm_result=llm_result).metric_sections}
     assert sections["contrast"].explanation == obs.text
-    assert sections["visual-complexity"].explanation == obs.text
+    assert sections["elements"].explanation == obs.text
 
 
-def test_hicks_law_evidence_does_not_leak_into_unrelated_sections() -> None:
+def test_elements_evidence_does_not_leak_into_unrelated_sections() -> None:
     obs = LLMObservation(
         id="obs-1",
-        text="Hick's law time estimate is based on the detected element count.",
-        metric_evidence=["lucidui.raw.elements.hicksLawEstimateMs"],
+        text="The detected element count is reported as a proxy signal.",
+        metric_evidence=["lucidui.raw.elements.detectedElementCount"],
         category="observation",
     )
     llm_result = _llm_result(observations=[obs])
     sections = {s.id: s for s in _build(llm_result=llm_result).metric_sections}
-    assert sections["hicks-law"].explanation == obs.text
-    # Shares the same underlying raw.elements key, so it is legitimately
-    # also relevant to the elements/target-size section.
-    assert sections["elements-target-size"].explanation == obs.text
-    # But must not leak into an unrelated section such as grouping.
+    assert sections["elements"].explanation == obs.text
+    # Must not leak into an unrelated section such as grouping.
     assert sections["grouping"].explanation == "No LLM interpretation is linked to this metric."
 
 

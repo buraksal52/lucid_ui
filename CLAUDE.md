@@ -143,6 +143,8 @@ They must never:
 
 Every recommendation must be traceable to one or more deterministic metrics.
 
+Measurement does not imply optimization direction. A metric having a high or low value is never, by itself, a reason to recommend changing it — see docs/metrics/interpretation-taxonomy.md for which metrics may support a recommendation (Actionable), may be surfaced for cautious review only (Diagnostic), or must never independently generate a prescriptive or quality-judgment claim (Descriptive), and `backend/app/llm/interpretation_guard.py` for the deterministic enforcement of this rule.
+
 LLMs receive JSON only.
 
 Raw screenshots must never be sent to an LLM.

@@ -107,16 +107,14 @@ def test_ocr_text_boxes_never_count_as_small_targets() -> None:
     }
     elements_meta, elements, control_like = analyze_elements_v2(img, ocr_data)
     assert elements_meta["ocrBasedCount"] == 1
-    assert elements_meta["smallTargetsBelow44px"] == 0
     assert control_like == []
 
 
-def test_small_contour_still_counts_as_small_target() -> None:
+def test_small_contour_still_counts_as_a_control_like_element() -> None:
     img = _solid_image(200, 200, (255, 255, 255))
     img[50:75, 50:75] = (0, 0, 0)  # a 25x25 dark square -> one small contour
     elements_meta, elements, control_like = analyze_elements_v2(img, _empty_ocr())
     assert elements_meta["contourBasedCount"] == 1
-    assert elements_meta["smallTargetsBelow44px"] == 1
     assert len(control_like) == 1
 
 
@@ -138,8 +136,11 @@ def test_small_element_set_is_never_flagged_as_a_grid() -> None:
 def test_multi_row_dense_grid_is_excluded_from_filtered_count() -> None:
     """A genuine keyboard-like structure: 3 stacked rows of 10 tightly
     packed, uniformly sized contour boxes, plus one isolated real square
-    elsewhere. Hick's Law must be computed off the filtered (grid-excluded)
-    count, not the raw one."""
+    elsewhere. `filteredElementCount`/`interactiveTargetCount` (which feed
+    Fitts's Law) must reflect the filtered (grid-excluded) count, not the
+    raw one -- the repeating-grid filtering itself is retained even though
+    its standalone `repeatingGridExcludedCount` disclosure field was
+    removed (Tier 3, docs/metrics/reliability-tiers.md)."""
     img = _solid_image(700, 700, (255, 255, 255))
     for row in range(3):
         for col in range(10):
@@ -149,21 +150,7 @@ def test_multi_row_dense_grid_is_excluded_from_filtered_count() -> None:
     img[50:110, 50:110] = (0, 0, 0)
 
     elements_meta, elements, eligible = analyze_elements_v2(img, _empty_ocr())
-    assert elements_meta["repeatingGridExcludedCount"] == 30
     assert elements_meta["filteredElementCount"] == len(eligible) == 1
-    # Hick's Law must be computed off the filtered count, not the raw one.
-    expected_ms = round(150 * np.log2(elements_meta["filteredElementCount"] + 1), 1)
-    assert elements_meta["hicksLawEstimateMs"] == expected_ms
-
-
-def test_hicks_law_b_constant_is_exposed_and_disclosed_as_unsourced() -> None:
-    """`hicksLawBConstantMs` must be queryable as its own field (not only
-    embedded in prose inside `source`), and `source` must disclose that it
-    is an assumed constant, not derived from Hick (1952)."""
-    img = _solid_image(200, 200, (255, 255, 255))
-    elements_meta, _elements, _eligible = analyze_elements_v2(img, _empty_ocr())
-    assert elements_meta["hicksLawBConstantMs"] == 150
-    assert "not a value derived from Hick" in elements_meta["source"]
 
 
 # ---------- Fix 3b: revised grid detection (multi-row/column, normalized density) ----------
@@ -171,15 +158,14 @@ def test_hicks_law_b_constant_is_exposed_and_disclosed_as_unsourced() -> None:
 
 def test_bottom_navigation_bar_is_not_treated_as_a_grid() -> None:
     """10 evenly-spaced, uniformly-sized icons in one row across a wide
-    screen -- a normal bottom nav bar -- must survive into both Fitts's Law
-    and Hick's Law untouched."""
+    screen -- a normal bottom nav bar -- must survive into Fitts's Law
+    untouched."""
     img = _solid_image(650, 800, (255, 255, 255))
     for i in range(10):
         x = i * 80
         img[600:640, x : x + 40] = (0, 0, 0)
 
     elements_meta, elements, eligible = analyze_elements_v2(img, _empty_ocr())
-    assert elements_meta["repeatingGridExcludedCount"] == 0
     assert elements_meta["filteredElementCount"] == len(eligible) == 10
     fitts = analyze_fitts_full_v2(eligible)
     assert fitts["elementsConsidered"] == 10
@@ -192,11 +178,11 @@ def test_filter_chip_row_is_not_treated_as_a_grid() -> None:
     assert _detect_repeating_grid_indices(elements) == set()
 
 
-def test_real_keyboard_grid_excludes_keys_from_both_fitts_and_hicks() -> None:
+def test_real_keyboard_grid_excludes_keys_from_fitts() -> None:
     """A genuine 3-row x 10-column, tightly packed keyboard, plus 3 real,
     separate controls elsewhere. The keyboard keys must be excluded from
-    *both* Hick's Law and Fitts's Law, and both metrics must agree on
-    `elementsConsidered == 3` -- the same shared eligible-element universe."""
+    Fitts's Law, and `filteredElementCount`/`elementsConsidered` must agree
+    on 3 -- the same shared eligible-element universe."""
     img = _solid_image(700, 400, (255, 255, 255))
     for row in range(3):
         for col in range(10):
@@ -207,7 +193,6 @@ def test_real_keyboard_grid_excludes_keys_from_both_fitts_and_hicks() -> None:
         img[y : y + h, x : x + w] = (0, 0, 0)
 
     elements_meta, elements, eligible = analyze_elements_v2(img, _empty_ocr())
-    assert elements_meta["repeatingGridExcludedCount"] == 30
     assert elements_meta["filteredElementCount"] == 3
 
     fitts = analyze_fitts_full_v2(eligible)
@@ -615,7 +600,6 @@ def test_dark_background_light_button_directly_on_it_is_recovered() -> None:
     # element detection, but the exact reason this isn't (60, 500, 280, 60).
     assert (59, 499, 282, 62) in contour_boxes
     assert len(eligible) == 1
-    assert elements_meta["hicksLawEstimateMs"] > 0
     assert elements_meta["metricsStatus"] == "ok"
 
 
@@ -788,9 +772,7 @@ def test_large_heading_letter_is_excluded_button_is_kept() -> None:
     assert elements_meta["contourBasedCount"] == 2  # both are still visual contours
     assert elements_meta["interactiveTargetCount"] == 1
     assert elements_meta["textGlyphContourExcludedCount"] == 1
-    assert elements_meta["smallTargetsBelow44px"] == 1  # button height (40px) is below 44px, correctly on the button, not the letter
     assert targets == [{"x": 40, "y": 300, "w": 220, "h": 40, "source": "contour"}]
-    assert elements_meta["hicksLawEstimateMs"] == 150.0  # b*log2(1+1) for exactly one target
 
 
 def test_text_labeled_button_is_kept_not_excluded() -> None:
@@ -810,7 +792,7 @@ def test_text_labeled_button_is_kept_not_excluded() -> None:
 def test_checkbox_next_to_label_text_is_kept() -> None:
     """A small checkbox sitting beside (not overlapping) its label text: the
     checkbox has no OCR overlap at all and must survive as an interactive
-    target, correctly flagged as a small target."""
+    target."""
     img = _solid_image(200, 300, (255, 255, 255))
     img[50:70, 20:40] = (40, 40, 40)  # a 20x20 checkbox
     ocr_data = _make_ocr([("Remember", 60, 50, 90, 16, 92), ("me", 155, 50, 25, 16, 92)])
@@ -818,7 +800,6 @@ def test_checkbox_next_to_label_text_is_kept() -> None:
     elements_meta, elements, targets = analyze_elements_v2(img, ocr_data)
     assert elements_meta["textGlyphContourExcludedCount"] == 0
     assert elements_meta["interactiveTargetCount"] == 1
-    assert elements_meta["smallTargetsBelow44px"] == 1
     assert targets == [{"x": 20, "y": 50, "w": 20, "h": 20, "source": "contour"}]
 
 
@@ -830,7 +811,6 @@ def test_icon_only_small_button_with_no_ocr_is_kept() -> None:
     elements_meta, elements, targets = analyze_elements_v2(img, _empty_ocr())
 
     assert elements_meta["interactiveTargetCount"] == 1
-    assert elements_meta["smallTargetsBelow44px"] == 1
     assert targets == [{"x": 80, "y": 80, "w": 30, "h": 30, "source": "contour"}]
 
 

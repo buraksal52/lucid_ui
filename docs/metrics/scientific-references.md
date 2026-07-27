@@ -8,11 +8,11 @@ World Wide Web Consortium (W3C), "Web Content Accessibility Guidelines (WCAG) 2.
 
 TODO: confirm exact W3C recommendation URL and publication date to cite precisely.
 
-## Hick's Law
+## Hick's Law (removed, `corrected-v4`)
 
-Hick, W. E. (1952). "On the rate of gain of information." *Quarterly Journal of Experimental Psychology*, 4(1), 11–26. Used as the basis for the [Hick's Law Estimate](metric-catalog.md#hicks-law-estimate) metric.
+Hick, W. E. (1952). "On the rate of gain of information." *Quarterly Journal of Experimental Psychology*, 4(1), 11–26. Was used as the basis for the Hick's Law Estimate metric (`hicksLawEstimateMs`/`hicksLawBConstantMs`).
 
-**Caveat on the `b` constant**: LucidUI's `T = b × log2(n + 1)` implementation uses `b = 150ms` (exposed as `hicksLawBConstantMs`). This value is an assumed, illustrative constant chosen for the implementation — it is **not** derived from Hick (1952) or any other cited empirical source. Hick's original paper reports findings in information-theoretic bits per unit time from its own experimental apparatus, not a single universal millisecond-per-bit constant applicable to arbitrary UI screenshots. `hicksLawEstimateMs` should be read as an uncalibrated relative estimate (comparable across LucidUI analyses), not a citation-backed prediction of real human decision time. No empirical correlation between LucidUI's Hick's/Fitts's Law estimates (or Miller-referenced group count) and actual human behavioral data has been established — see [docs/research/evaluation-plan.md](../research/evaluation-plan.md) for the not-yet-executed plan to test this.
+The `T = b × log2(n + 1)` implementation used `b = 150ms`, an assumed, illustrative constant — **not** derived from Hick (1952) or any other cited empirical source (Hick's original paper reports information-theoretic bits per unit time from its own apparatus, not a single universal millisecond-per-bit constant applicable to arbitrary UI screenshots), with no empirical correlation to real human decision time ever established. This unsourced-constant issue is exactly why the metric was removed as Tier 3 ("Problematic") per [reliability-tiers.md](reliability-tiers.md) — see [metric-catalog.md](metric-catalog.md#removed-metrics-tier-3-corrected-v4) for the full removal note. No empirical correlation between LucidUI's Fitts's Law estimate (or Miller-referenced group count) and actual human behavioral data has been established either — see [docs/research/evaluation-plan.md](../research/evaluation-plan.md) for the not-yet-executed plan to test this.
 
 ## Fitts's Law
 

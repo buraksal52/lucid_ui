@@ -57,7 +57,7 @@ class VariantTimingResult(CamelModel):
 
 
 class VariantAnalysisReport(CamelModel):
-    schema_version: str = Field(default="1.0")
+    schema_version: str = Field(default="2.0")
     analysis_id: str
     mode: AnalysisMode = Field(default=AnalysisMode.VARIANTS)
     context: AnalysisContext

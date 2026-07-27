@@ -1,11 +1,11 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "2.0",
   "analysisId": "b3240f12-2d58-402d-97a8-5b122fa2928e",
   "mode": "variants",
   "context": "general",
   "status": "completed",
   "variantA": {
-    "schemaVersion": "1.0",
+    "schemaVersion": "2.0",
     "analysisId": "23eff3d9-4640-43d9-970d-45fde3755301",
     "mode": "single",
     "context": "general",
@@ -27,23 +27,15 @@
           "regionsUncertain": 0,
           "regionsBorderline": 0,
           "regionsBelowAAThreshold": 0,
-          "source": "WCAG 2.1 AA (4.5:1 normal text); dual foreground estimate per ink cluster \u2014 a core estimate (darkest/lightest 15% of the ink cluster, per-channel median) and a conservative estimate (per-channel median of the entire ink cluster); a region is a confirmed pass/fail only when both agree, otherwise reported borderline with both ratios and the resulting range \u2014 never fabricated or forced to a single value (corrected-v3, contrast sampling v4)"
-        },
-        "clutter": {
-          "edgeDensity": 0.0,
-          "source": "Rosenholtz, Li & Nakano (2007) - Edge Density proxy"
+          "source": "WCAG 2.1 AA (4.5:1 normal text); dual foreground estimate per ink cluster — a core estimate (darkest/lightest 15% of the ink cluster, per-channel median) and a conservative estimate (per-channel median of the entire ink cluster); a region is a confirmed pass/fail only when both agree, otherwise reported borderline with both ratios and the resulting range — never fabricated or forced to a single value (corrected-v3, contrast sampling v4)"
         },
         "elements": {
           "detectedElementCount": 0,
           "contourBasedCount": 0,
           "ocrBasedCount": 0,
           "filteredElementCount": 0,
-          "repeatingGridExcludedCount": 0,
-          "hicksLawEstimateMs": 0.0,
-          "hicksLawBConstantMs": 150,
           "isProxyMetric": true,
-          "smallTargetsBelow44px": 0,
-          "source": "Hick's Law (T = b * log2(n+1), b=150ms) computed on filteredElementCount (detectedElementCount minus repeating-grid system-chrome bands, e.g. an on-screen keyboard, disclosed via repeatingGridExcludedCount); small-target check (44x44 raw screenshot px) applies to contour-sourced elements only (corrected-v1). hicksLawBConstantMs (b=150ms) is an assumed/illustrative constant, not a value derived from Hick (1952) or any cited empirical source — treat hicksLawEstimateMs as an uncalibrated relative estimate, not a predicted decision time in real milliseconds."
+          "source": "interactiveTargetCount (== filteredElementCount) is contour-sourced elements only, excluding OCR text boxes, repeating-grid system chrome (e.g. an on-screen keyboard), contours substantially coincident with OCR text ink disclosed via textGlyphContourExcludedCount, and contours inside a confidently detected system-keyboard region disclosed via keyboardExcludedTargetCount/systemUiRegion (corrected-v8)."
         },
         "groups": {
           "estimatedGroupCount": 0,
@@ -57,20 +49,11 @@
           "averageOcrConfidence": null,
           "lowConfidenceWordsExcluded": 0,
           "source": "Text density = OCR bounding-box area / image area; fontSizeDiversityProxy = median absolute deviation of OCR box heights, more outlier-resistant than std-dev (corrected-v1). Both metrics are entirely dependent on Tesseract OCR output quality and this dependency is not independently error-measured; averageOcrConfidence (mean Tesseract confidence over counted words) and lowConfidenceWordsExcluded (words dropped below confidence 60, excluded outright, never down-weighted) disclose that dependency per-analysis (corrected-v2)."
-        },
-        "whitespaceAlignment": {
-          "whitespaceRatio": 1.0,
-          "alignmentVariance": null,
-          "alignedElementRatio": null,
-          "source": "Whitespace requires both low local variance and mean brightness > 200/255, so a flat saturated color no longer counts as whitespace; alignedElementRatio = share of elements whose left or top edge is within 8px of another element's, crediting multiple independent alignment axes (corrected-v1). The variance/brightness thresholds (100, 200/255) and the 8px alignment-edge tolerance were tuned against a small internal set of real screenshots, not a systematic or statistically powered validation study, and are not derived from the image being analyzed — they may under- or over-detect on layouts/themes unlike that set (e.g. dark-mode UIs, unusually large/small grid units)."
         }
       },
       "normalized": {
-        "contrast": 0.0,
-        "clutter": 100.0,
-        "textDensity": 100.0,
-        "elementSize": 100.0,
-        "groupCount": 0.0
+        "contrast": 0,
+        "textDensity": 100
       },
       "additionalSignals": {
         "colorfulness": {
@@ -93,14 +76,14 @@
           "source": "Visual balance proxy (left/right, top/bottom luminance difference)"
         }
       },
-      "weightedScore": 75.0,
+      "weightedScore": 44.4,
       "scoreName": "LucidUI Composite Signal Score",
-      "metricEngineVersion": "corrected-v3"
+      "metricEngineVersion": "corrected-v4"
     },
     "llmInterpretation": {
       "status": "completed",
       "provider": "mock",
-      "summary": "LucidUI's deterministic metric engine computed a composite proxy signal for this screenshot from contrast, clutter, element, and layout measurements. This is a placeholder interpretation from the mock provider, not a live model response.",
+      "summary": "LucidUI's deterministic metric engine computed a composite proxy signal for this screenshot from contrast, element, and text density measurements. This is a placeholder interpretation from the mock provider, not a live model response.",
       "observations": [
         {
           "id": "obs-1",
@@ -113,20 +96,20 @@
         },
         {
           "id": "obs-2",
-          "text": "Contrast and clutter were measured against fixed reference thresholds as detected, screenshot-based proxy signals.",
+          "text": "Contrast and text density were measured against fixed reference thresholds as detected, screenshot-based proxy signals.",
           "metricEvidence": [
             "lucidui.raw.contrast",
-            "lucidui.raw.clutter"
+            "lucidui.raw.textDensity"
           ],
           "category": "observation"
         }
       ],
       "recommendations": [
-        "Review the raw metric values in lucidui.raw for any measurements below their documented reference thresholds as a possible review area."
+        "Reviewing the raw metric values in lucidui.raw against their documented reference thresholds could help identify possible review areas, since values below threshold are flagged as such rather than confirmed issues."
       ],
       "limitations": [
         "This interpretation was produced by a deterministic mock provider, not a live language model, and is intentionally generic.",
-        "All underlying metrics are screenshot-based proxy signals with known limitations \u2014 see docs/metrics/known-limitations.md."
+        "All underlying metrics are screenshot-based proxy signals with known limitations — see docs/metrics/known-limitations.md."
       ]
     },
     "uiclip": {
@@ -144,7 +127,7 @@
       "inferenceTimeMs": 0
     },
     "comparison": {
-      "luciduiWeightedScore": 75.0,
+      "luciduiWeightedScore": 44.4,
       "uiclipNormalizedQualityScore": null,
       "absoluteScoreDifference": null,
       "agreementLevel": "unavailable",
@@ -164,7 +147,7 @@
     "presentation": {
       "title": "LucidUI Design Signal Report",
       "context": "general",
-      "summary": "LucidUI's deterministic metric engine computed a composite proxy signal for this screenshot from contrast, clutter, element, and layout measurements. This is a placeholder interpretation from the mock provider, not a live model response.",
+      "summary": "LucidUI's deterministic metric engine computed a composite proxy signal for this screenshot from contrast, element, and text density measurements. This is a placeholder interpretation from the mock provider, not a live model response.",
       "metricSections": [
         {
           "id": "contrast",
@@ -172,59 +155,30 @@
           "category": "contrast",
           "rawDisplay": "No data available",
           "normalizedScore": 0.0,
-          "explanation": "Contrast and clutter were measured against fixed reference thresholds as detected, screenshot-based proxy signals.",
+          "explanation": "Contrast and text density were measured against fixed reference thresholds as detected, screenshot-based proxy signals.",
           "evidencePaths": [
             "lucidui.raw.contrast.averageContrastRatio",
             "lucidui.raw.contrast.regionsAnalyzed",
             "lucidui.raw.contrast.regionsBelowAAThreshold",
             "lucidui.normalized.contrast"
           ],
-          "source": "WCAG 2.1 AA (4.5:1 normal text); dual foreground estimate per ink cluster \u2014 a core estimate (darkest/lightest 15% of the ink cluster, per-channel median) and a conservative estimate (per-channel median of the entire ink cluster); a region is a confirmed pass/fail only when both agree, otherwise reported borderline with both ratios and the resulting range \u2014 never fabricated or forced to a single value (corrected-v3, contrast sampling v4)",
+          "source": "WCAG 2.1 AA (4.5:1 normal text); dual foreground estimate per ink cluster — a core estimate (darkest/lightest 15% of the ink cluster, per-channel median) and a conservative estimate (per-channel median of the entire ink cluster); a region is a confirmed pass/fail only when both agree, otherwise reported borderline with both ratios and the resulting range — never fabricated or forced to a single value (corrected-v3, contrast sampling v4)",
           "isProxy": false
         },
         {
-          "id": "visual-complexity",
-          "title": "Visual Complexity (Edge Density)",
-          "category": "visual-complexity",
-          "rawDisplay": "0.0000",
-          "normalizedScore": 100.0,
-          "explanation": "Contrast and clutter were measured against fixed reference thresholds as detected, screenshot-based proxy signals.",
-          "evidencePaths": [
-            "lucidui.raw.clutter.edgeDensity",
-            "lucidui.normalized.clutter"
-          ],
-          "source": "Rosenholtz, Li & Nakano (2007) - Edge Density proxy",
-          "isProxy": false
-        },
-        {
-          "id": "elements-target-size",
-          "title": "Elements & Target Size",
+          "id": "elements",
+          "title": "Detected Elements",
           "category": "elements",
-          "rawDisplay": "0 / 0",
-          "normalizedScore": 100.0,
+          "rawDisplay": "0 elements",
+          "normalizedScore": null,
           "explanation": "No LLM interpretation is linked to this metric.",
           "evidencePaths": [
             "lucidui.raw.elements.detectedElementCount",
             "lucidui.raw.elements.contourBasedCount",
             "lucidui.raw.elements.ocrBasedCount",
-            "lucidui.raw.elements.smallTargetsBelow44px",
-            "lucidui.normalized.elementSize"
+            "lucidui.raw.elements.interactiveTargetCount"
           ],
-          "source": "Hick's Law (T = b * log2(n+1), b=150ms) computed on filteredElementCount (detectedElementCount minus repeating-grid system-chrome bands, e.g. an on-screen keyboard, disclosed via repeatingGridExcludedCount); small-target check (44x44 raw screenshot px) applies to contour-sourced elements only (corrected-v1). hicksLawBConstantMs (b=150ms) is an assumed/illustrative constant, not a value derived from Hick (1952) or any cited empirical source — treat hicksLawEstimateMs as an uncalibrated relative estimate, not a predicted decision time in real milliseconds.",
-          "isProxy": true
-        },
-        {
-          "id": "hicks-law",
-          "title": "Hick's Law Estimate",
-          "category": "cognitive-load",
-          "rawDisplay": "0.0 ms",
-          "normalizedScore": null,
-          "explanation": "No LLM interpretation is linked to this metric.",
-          "evidencePaths": [
-            "lucidui.raw.elements.hicksLawEstimateMs",
-            "lucidui.raw.elements.detectedElementCount"
-          ],
-          "source": "Hick's Law (T = b * log2(n+1), b=150ms) computed on filteredElementCount (detectedElementCount minus repeating-grid system-chrome bands, e.g. an on-screen keyboard, disclosed via repeatingGridExcludedCount); small-target check (44x44 raw screenshot px) applies to contour-sourced elements only (corrected-v1). hicksLawBConstantMs (b=150ms) is an assumed/illustrative constant, not a value derived from Hick (1952) or any cited empirical source — treat hicksLawEstimateMs as an uncalibrated relative estimate, not a predicted decision time in real milliseconds.",
+          "source": "interactiveTargetCount (== filteredElementCount) is contour-sourced elements only, excluding OCR text boxes, repeating-grid system chrome (e.g. an on-screen keyboard), contours substantially coincident with OCR text ink disclosed via textGlyphContourExcludedCount, and contours inside a confidently detected system-keyboard region disclosed via keyboardExcludedTargetCount/systemUiRegion (corrected-v8).",
           "isProxy": true
         },
         {
@@ -232,11 +186,10 @@
           "title": "Grouping (Estimated Group Count)",
           "category": "grouping",
           "rawDisplay": "0 groups",
-          "normalizedScore": 0.0,
+          "normalizedScore": null,
           "explanation": "No LLM interpretation is linked to this metric.",
           "evidencePaths": [
-            "lucidui.raw.groups.estimatedGroupCount",
-            "lucidui.normalized.groupCount"
+            "lucidui.raw.groups.estimatedGroupCount"
           ],
           "source": "Miller's Law (7+-2), Miller (1956); complete-linkage clustering (corrected-v1)",
           "isProxy": true
@@ -247,28 +200,14 @@
           "category": "text",
           "rawDisplay": "0.00%",
           "normalizedScore": 100.0,
-          "explanation": "No LLM interpretation is linked to this metric.",
+          "explanation": "Contrast and text density were measured against fixed reference thresholds as detected, screenshot-based proxy signals.",
           "evidencePaths": [
             "lucidui.raw.textDensity.textDensityRatio",
             "lucidui.raw.textDensity.fontSizeDiversityProxy",
             "lucidui.raw.textDensity.wordsDetected",
             "lucidui.normalized.textDensity"
           ],
-          "source": "Text density = OCR bounding-box area / image area; fontSizeDiversityProxy = median absolute deviation of OCR box heights, more outlier-resistant than std-dev (corrected-v1)",
-          "isProxy": false
-        },
-        {
-          "id": "whitespace-alignment",
-          "title": "Whitespace & Alignment",
-          "category": "layout",
-          "rawDisplay": "Whitespace 100.00% \u00b7 Alignment variance No data available",
-          "normalizedScore": null,
-          "explanation": "No LLM interpretation is linked to this metric.",
-          "evidencePaths": [
-            "lucidui.raw.whitespaceAlignment.whitespaceRatio",
-            "lucidui.raw.whitespaceAlignment.alignmentVariance"
-          ],
-          "source": "Whitespace requires both low local variance and mean brightness > 200/255, so a flat saturated color no longer counts as whitespace; alignedElementRatio = share of elements whose left or top edge is within 8px of another element's, crediting multiple independent alignment axes (corrected-v1). The variance/brightness thresholds (100, 200/255) and the 8px alignment-edge tolerance were tuned against a small internal set of real screenshots, not a systematic or statistically powered validation study, and are not derived from the image being analyzed — they may under- or over-detect on layouts/themes unlike that set (e.g. dark-mode UIs, unusually large/small grid units).",
+          "source": "Text density = OCR bounding-box area / image area; fontSizeDiversityProxy = median absolute deviation of OCR box heights, more outlier-resistant than std-dev (corrected-v1). Both metrics are entirely dependent on Tesseract OCR output quality and this dependency is not independently error-measured; averageOcrConfidence (mean Tesseract confidence over counted words) and lowConfidenceWordsExcluded (words dropped below confidence 60, excluded outright, never down-weighted) disclose that dependency per-analysis (corrected-v2).",
           "isProxy": false
         },
         {
@@ -313,11 +252,11 @@
         }
       ],
       "composite": {
-        "rawDisplay": "75.0 / 100",
-        "value": 75.0,
+        "rawDisplay": "44.4 / 100",
+        "value": 44.4,
         "scoreName": "LucidUI Composite Signal Score",
         "context": "general",
-        "explanation": "This composite score is a weighted signal summary of the metrics above, not a quality judgment \u2014 see docs/metrics/scoring-and-normalization.md."
+        "explanation": "This composite score is a weighted signal summary of only two metrics — contrast and text density, not every metric above — and is not a quality judgment or overall UI quality score; see docs/metrics/scoring-and-normalization.md."
       },
       "uiclipSummary": {
         "status": "completed",
@@ -327,21 +266,21 @@
         "scoreType": "Learned raw model score",
         "normalizedScoreDisplay": null,
         "comparableToLucidui": false,
-        "comparabilityNote": "UIClip's raw score is not directly comparable to LucidUI's weighted composite score \u2014 the two use different scales and methods, and comparison has not been implemented yet (see ROADMAP.md Phase 6)."
+        "comparabilityNote": "UIClip's raw score is not directly comparable to LucidUI's weighted composite score — the two use different scales and methods, and comparison has not been implemented yet (see ROADMAP.md Phase 6)."
       },
       "recommendations": [
-        "Review the raw metric values in lucidui.raw for any measurements below their documented reference thresholds as a possible review area."
+        "Reviewing the raw metric values in lucidui.raw against their documented reference thresholds could help identify possible review areas, since values below threshold are flagged as such rather than confirmed issues."
       ],
       "limitations": [
-        "Every metric above is a deterministic proxy signal for review, not a verdict \u2014 see docs/metrics/metric-catalog.md and docs/metrics/known-limitations.md.",
+        "Every metric above is a deterministic proxy signal for review, not a verdict — see docs/metrics/metric-catalog.md and docs/metrics/known-limitations.md.",
         "This interpretation was produced by a deterministic mock provider, not a live language model, and is intentionally generic.",
-        "All underlying metrics are screenshot-based proxy signals with known limitations \u2014 see docs/metrics/known-limitations.md."
+        "All underlying metrics are screenshot-based proxy signals with known limitations — see docs/metrics/known-limitations.md."
       ],
       "closingNote": "These results are design signals for review, not objective verdicts. UIClip evaluation used the offline mock evaluator for this analysis, not the real UIClip model (see ROADMAP.md Phase 5). Comparison between LucidUI and UIClip has not been computed (see ROADMAP.md Phase 6)."
     }
   },
   "variantB": {
-    "schemaVersion": "1.0",
+    "schemaVersion": "2.0",
     "analysisId": "161b0cff-b816-4a7c-91ef-cab97ec566ff",
     "mode": "single",
     "context": "general",
@@ -363,23 +302,15 @@
           "regionsUncertain": 0,
           "regionsBorderline": 0,
           "regionsBelowAAThreshold": 0,
-          "source": "WCAG 2.1 AA (4.5:1 normal text); dual foreground estimate per ink cluster \u2014 a core estimate (darkest/lightest 15% of the ink cluster, per-channel median) and a conservative estimate (per-channel median of the entire ink cluster); a region is a confirmed pass/fail only when both agree, otherwise reported borderline with both ratios and the resulting range \u2014 never fabricated or forced to a single value (corrected-v3, contrast sampling v4)"
-        },
-        "clutter": {
-          "edgeDensity": 0.0,
-          "source": "Rosenholtz, Li & Nakano (2007) - Edge Density proxy"
+          "source": "WCAG 2.1 AA (4.5:1 normal text); dual foreground estimate per ink cluster — a core estimate (darkest/lightest 15% of the ink cluster, per-channel median) and a conservative estimate (per-channel median of the entire ink cluster); a region is a confirmed pass/fail only when both agree, otherwise reported borderline with both ratios and the resulting range — never fabricated or forced to a single value (corrected-v3, contrast sampling v4)"
         },
         "elements": {
           "detectedElementCount": 0,
           "contourBasedCount": 0,
           "ocrBasedCount": 0,
           "filteredElementCount": 0,
-          "repeatingGridExcludedCount": 0,
-          "hicksLawEstimateMs": 0.0,
-          "hicksLawBConstantMs": 150,
           "isProxyMetric": true,
-          "smallTargetsBelow44px": 0,
-          "source": "Hick's Law (T = b * log2(n+1), b=150ms) computed on filteredElementCount (detectedElementCount minus repeating-grid system-chrome bands, e.g. an on-screen keyboard, disclosed via repeatingGridExcludedCount); small-target check (44x44 raw screenshot px) applies to contour-sourced elements only (corrected-v1). hicksLawBConstantMs (b=150ms) is an assumed/illustrative constant, not a value derived from Hick (1952) or any cited empirical source — treat hicksLawEstimateMs as an uncalibrated relative estimate, not a predicted decision time in real milliseconds."
+          "source": "interactiveTargetCount (== filteredElementCount) is contour-sourced elements only, excluding OCR text boxes, repeating-grid system chrome (e.g. an on-screen keyboard), contours substantially coincident with OCR text ink disclosed via textGlyphContourExcludedCount, and contours inside a confidently detected system-keyboard region disclosed via keyboardExcludedTargetCount/systemUiRegion (corrected-v8)."
         },
         "groups": {
           "estimatedGroupCount": 0,
@@ -393,20 +324,11 @@
           "averageOcrConfidence": null,
           "lowConfidenceWordsExcluded": 0,
           "source": "Text density = OCR bounding-box area / image area; fontSizeDiversityProxy = median absolute deviation of OCR box heights, more outlier-resistant than std-dev (corrected-v1). Both metrics are entirely dependent on Tesseract OCR output quality and this dependency is not independently error-measured; averageOcrConfidence (mean Tesseract confidence over counted words) and lowConfidenceWordsExcluded (words dropped below confidence 60, excluded outright, never down-weighted) disclose that dependency per-analysis (corrected-v2)."
-        },
-        "whitespaceAlignment": {
-          "whitespaceRatio": 0.0,
-          "alignmentVariance": null,
-          "alignedElementRatio": null,
-          "source": "Whitespace requires both low local variance and mean brightness > 200/255, so a flat saturated color no longer counts as whitespace; alignedElementRatio = share of elements whose left or top edge is within 8px of another element's, crediting multiple independent alignment axes (corrected-v1). The variance/brightness thresholds (100, 200/255) and the 8px alignment-edge tolerance were tuned against a small internal set of real screenshots, not a systematic or statistically powered validation study, and are not derived from the image being analyzed — they may under- or over-detect on layouts/themes unlike that set (e.g. dark-mode UIs, unusually large/small grid units)."
         }
       },
       "normalized": {
-        "contrast": 0.0,
-        "clutter": 100.0,
-        "textDensity": 100.0,
-        "elementSize": 100.0,
-        "groupCount": 0.0
+        "contrast": 0,
+        "textDensity": 100
       },
       "additionalSignals": {
         "colorfulness": {
@@ -429,14 +351,14 @@
           "source": "Visual balance proxy (left/right, top/bottom luminance difference)"
         }
       },
-      "weightedScore": 75.0,
+      "weightedScore": 44.4,
       "scoreName": "LucidUI Composite Signal Score",
-      "metricEngineVersion": "corrected-v3"
+      "metricEngineVersion": "corrected-v4"
     },
     "llmInterpretation": {
       "status": "completed",
       "provider": "mock",
-      "summary": "LucidUI's deterministic metric engine computed a composite proxy signal for this screenshot from contrast, clutter, element, and layout measurements. This is a placeholder interpretation from the mock provider, not a live model response.",
+      "summary": "LucidUI's deterministic metric engine computed a composite proxy signal for this screenshot from contrast, element, and text density measurements. This is a placeholder interpretation from the mock provider, not a live model response.",
       "observations": [
         {
           "id": "obs-1",
@@ -449,20 +371,20 @@
         },
         {
           "id": "obs-2",
-          "text": "Contrast and clutter were measured against fixed reference thresholds as detected, screenshot-based proxy signals.",
+          "text": "Contrast and text density were measured against fixed reference thresholds as detected, screenshot-based proxy signals.",
           "metricEvidence": [
             "lucidui.raw.contrast",
-            "lucidui.raw.clutter"
+            "lucidui.raw.textDensity"
           ],
           "category": "observation"
         }
       ],
       "recommendations": [
-        "Review the raw metric values in lucidui.raw for any measurements below their documented reference thresholds as a possible review area."
+        "Reviewing the raw metric values in lucidui.raw against their documented reference thresholds could help identify possible review areas, since values below threshold are flagged as such rather than confirmed issues."
       ],
       "limitations": [
         "This interpretation was produced by a deterministic mock provider, not a live language model, and is intentionally generic.",
-        "All underlying metrics are screenshot-based proxy signals with known limitations \u2014 see docs/metrics/known-limitations.md."
+        "All underlying metrics are screenshot-based proxy signals with known limitations — see docs/metrics/known-limitations.md."
       ]
     },
     "uiclip": {
@@ -480,7 +402,7 @@
       "inferenceTimeMs": 0
     },
     "comparison": {
-      "luciduiWeightedScore": 75.0,
+      "luciduiWeightedScore": 44.4,
       "uiclipNormalizedQualityScore": null,
       "absoluteScoreDifference": null,
       "agreementLevel": "unavailable",
@@ -500,7 +422,7 @@
     "presentation": {
       "title": "LucidUI Design Signal Report",
       "context": "general",
-      "summary": "LucidUI's deterministic metric engine computed a composite proxy signal for this screenshot from contrast, clutter, element, and layout measurements. This is a placeholder interpretation from the mock provider, not a live model response.",
+      "summary": "LucidUI's deterministic metric engine computed a composite proxy signal for this screenshot from contrast, element, and text density measurements. This is a placeholder interpretation from the mock provider, not a live model response.",
       "metricSections": [
         {
           "id": "contrast",
@@ -508,59 +430,30 @@
           "category": "contrast",
           "rawDisplay": "No data available",
           "normalizedScore": 0.0,
-          "explanation": "Contrast and clutter were measured against fixed reference thresholds as detected, screenshot-based proxy signals.",
+          "explanation": "Contrast and text density were measured against fixed reference thresholds as detected, screenshot-based proxy signals.",
           "evidencePaths": [
             "lucidui.raw.contrast.averageContrastRatio",
             "lucidui.raw.contrast.regionsAnalyzed",
             "lucidui.raw.contrast.regionsBelowAAThreshold",
             "lucidui.normalized.contrast"
           ],
-          "source": "WCAG 2.1 AA (4.5:1 normal text); dual foreground estimate per ink cluster \u2014 a core estimate (darkest/lightest 15% of the ink cluster, per-channel median) and a conservative estimate (per-channel median of the entire ink cluster); a region is a confirmed pass/fail only when both agree, otherwise reported borderline with both ratios and the resulting range \u2014 never fabricated or forced to a single value (corrected-v3, contrast sampling v4)",
+          "source": "WCAG 2.1 AA (4.5:1 normal text); dual foreground estimate per ink cluster — a core estimate (darkest/lightest 15% of the ink cluster, per-channel median) and a conservative estimate (per-channel median of the entire ink cluster); a region is a confirmed pass/fail only when both agree, otherwise reported borderline with both ratios and the resulting range — never fabricated or forced to a single value (corrected-v3, contrast sampling v4)",
           "isProxy": false
         },
         {
-          "id": "visual-complexity",
-          "title": "Visual Complexity (Edge Density)",
-          "category": "visual-complexity",
-          "rawDisplay": "0.0000",
-          "normalizedScore": 100.0,
-          "explanation": "Contrast and clutter were measured against fixed reference thresholds as detected, screenshot-based proxy signals.",
-          "evidencePaths": [
-            "lucidui.raw.clutter.edgeDensity",
-            "lucidui.normalized.clutter"
-          ],
-          "source": "Rosenholtz, Li & Nakano (2007) - Edge Density proxy",
-          "isProxy": false
-        },
-        {
-          "id": "elements-target-size",
-          "title": "Elements & Target Size",
+          "id": "elements",
+          "title": "Detected Elements",
           "category": "elements",
-          "rawDisplay": "0 / 0",
-          "normalizedScore": 100.0,
+          "rawDisplay": "0 elements",
+          "normalizedScore": null,
           "explanation": "No LLM interpretation is linked to this metric.",
           "evidencePaths": [
             "lucidui.raw.elements.detectedElementCount",
             "lucidui.raw.elements.contourBasedCount",
             "lucidui.raw.elements.ocrBasedCount",
-            "lucidui.raw.elements.smallTargetsBelow44px",
-            "lucidui.normalized.elementSize"
+            "lucidui.raw.elements.interactiveTargetCount"
           ],
-          "source": "Hick's Law (T = b * log2(n+1), b=150ms) computed on filteredElementCount (detectedElementCount minus repeating-grid system-chrome bands, e.g. an on-screen keyboard, disclosed via repeatingGridExcludedCount); small-target check (44x44 raw screenshot px) applies to contour-sourced elements only (corrected-v1). hicksLawBConstantMs (b=150ms) is an assumed/illustrative constant, not a value derived from Hick (1952) or any cited empirical source — treat hicksLawEstimateMs as an uncalibrated relative estimate, not a predicted decision time in real milliseconds.",
-          "isProxy": true
-        },
-        {
-          "id": "hicks-law",
-          "title": "Hick's Law Estimate",
-          "category": "cognitive-load",
-          "rawDisplay": "0.0 ms",
-          "normalizedScore": null,
-          "explanation": "No LLM interpretation is linked to this metric.",
-          "evidencePaths": [
-            "lucidui.raw.elements.hicksLawEstimateMs",
-            "lucidui.raw.elements.detectedElementCount"
-          ],
-          "source": "Hick's Law (T = b * log2(n+1), b=150ms) computed on filteredElementCount (detectedElementCount minus repeating-grid system-chrome bands, e.g. an on-screen keyboard, disclosed via repeatingGridExcludedCount); small-target check (44x44 raw screenshot px) applies to contour-sourced elements only (corrected-v1). hicksLawBConstantMs (b=150ms) is an assumed/illustrative constant, not a value derived from Hick (1952) or any cited empirical source — treat hicksLawEstimateMs as an uncalibrated relative estimate, not a predicted decision time in real milliseconds.",
+          "source": "interactiveTargetCount (== filteredElementCount) is contour-sourced elements only, excluding OCR text boxes, repeating-grid system chrome (e.g. an on-screen keyboard), contours substantially coincident with OCR text ink disclosed via textGlyphContourExcludedCount, and contours inside a confidently detected system-keyboard region disclosed via keyboardExcludedTargetCount/systemUiRegion (corrected-v8).",
           "isProxy": true
         },
         {
@@ -568,11 +461,10 @@
           "title": "Grouping (Estimated Group Count)",
           "category": "grouping",
           "rawDisplay": "0 groups",
-          "normalizedScore": 0.0,
+          "normalizedScore": null,
           "explanation": "No LLM interpretation is linked to this metric.",
           "evidencePaths": [
-            "lucidui.raw.groups.estimatedGroupCount",
-            "lucidui.normalized.groupCount"
+            "lucidui.raw.groups.estimatedGroupCount"
           ],
           "source": "Miller's Law (7+-2), Miller (1956); complete-linkage clustering (corrected-v1)",
           "isProxy": true
@@ -583,28 +475,14 @@
           "category": "text",
           "rawDisplay": "0.00%",
           "normalizedScore": 100.0,
-          "explanation": "No LLM interpretation is linked to this metric.",
+          "explanation": "Contrast and text density were measured against fixed reference thresholds as detected, screenshot-based proxy signals.",
           "evidencePaths": [
             "lucidui.raw.textDensity.textDensityRatio",
             "lucidui.raw.textDensity.fontSizeDiversityProxy",
             "lucidui.raw.textDensity.wordsDetected",
             "lucidui.normalized.textDensity"
           ],
-          "source": "Text density = OCR bounding-box area / image area; fontSizeDiversityProxy = median absolute deviation of OCR box heights, more outlier-resistant than std-dev (corrected-v1)",
-          "isProxy": false
-        },
-        {
-          "id": "whitespace-alignment",
-          "title": "Whitespace & Alignment",
-          "category": "layout",
-          "rawDisplay": "Whitespace 0.00% \u00b7 Alignment variance No data available",
-          "normalizedScore": null,
-          "explanation": "No LLM interpretation is linked to this metric.",
-          "evidencePaths": [
-            "lucidui.raw.whitespaceAlignment.whitespaceRatio",
-            "lucidui.raw.whitespaceAlignment.alignmentVariance"
-          ],
-          "source": "Whitespace requires both low local variance and mean brightness > 200/255, so a flat saturated color no longer counts as whitespace; alignedElementRatio = share of elements whose left or top edge is within 8px of another element's, crediting multiple independent alignment axes (corrected-v1). The variance/brightness thresholds (100, 200/255) and the 8px alignment-edge tolerance were tuned against a small internal set of real screenshots, not a systematic or statistically powered validation study, and are not derived from the image being analyzed — they may under- or over-detect on layouts/themes unlike that set (e.g. dark-mode UIs, unusually large/small grid units).",
+          "source": "Text density = OCR bounding-box area / image area; fontSizeDiversityProxy = median absolute deviation of OCR box heights, more outlier-resistant than std-dev (corrected-v1). Both metrics are entirely dependent on Tesseract OCR output quality and this dependency is not independently error-measured; averageOcrConfidence (mean Tesseract confidence over counted words) and lowConfidenceWordsExcluded (words dropped below confidence 60, excluded outright, never down-weighted) disclose that dependency per-analysis (corrected-v2).",
           "isProxy": false
         },
         {
@@ -649,11 +527,11 @@
         }
       ],
       "composite": {
-        "rawDisplay": "75.0 / 100",
-        "value": 75.0,
+        "rawDisplay": "44.4 / 100",
+        "value": 44.4,
         "scoreName": "LucidUI Composite Signal Score",
         "context": "general",
-        "explanation": "This composite score is a weighted signal summary of the metrics above, not a quality judgment \u2014 see docs/metrics/scoring-and-normalization.md."
+        "explanation": "This composite score is a weighted signal summary of only two metrics — contrast and text density, not every metric above — and is not a quality judgment or overall UI quality score; see docs/metrics/scoring-and-normalization.md."
       },
       "uiclipSummary": {
         "status": "completed",
@@ -663,15 +541,15 @@
         "scoreType": "Learned raw model score",
         "normalizedScoreDisplay": null,
         "comparableToLucidui": false,
-        "comparabilityNote": "UIClip's raw score is not directly comparable to LucidUI's weighted composite score \u2014 the two use different scales and methods, and comparison has not been implemented yet (see ROADMAP.md Phase 6)."
+        "comparabilityNote": "UIClip's raw score is not directly comparable to LucidUI's weighted composite score — the two use different scales and methods, and comparison has not been implemented yet (see ROADMAP.md Phase 6)."
       },
       "recommendations": [
-        "Review the raw metric values in lucidui.raw for any measurements below their documented reference thresholds as a possible review area."
+        "Reviewing the raw metric values in lucidui.raw against their documented reference thresholds could help identify possible review areas, since values below threshold are flagged as such rather than confirmed issues."
       ],
       "limitations": [
-        "Every metric above is a deterministic proxy signal for review, not a verdict \u2014 see docs/metrics/metric-catalog.md and docs/metrics/known-limitations.md.",
+        "Every metric above is a deterministic proxy signal for review, not a verdict — see docs/metrics/metric-catalog.md and docs/metrics/known-limitations.md.",
         "This interpretation was produced by a deterministic mock provider, not a live language model, and is intentionally generic.",
-        "All underlying metrics are screenshot-based proxy signals with known limitations \u2014 see docs/metrics/known-limitations.md."
+        "All underlying metrics are screenshot-based proxy signals with known limitations — see docs/metrics/known-limitations.md."
       ],
       "closingNote": "These results are design signals for review, not objective verdicts. UIClip evaluation used the offline mock evaluator for this analysis, not the real UIClip model (see ROADMAP.md Phase 5). Comparison between LucidUI and UIClip has not been computed (see ROADMAP.md Phase 6)."
     }
@@ -692,40 +570,22 @@
         "direction": "equal"
       },
       {
-        "id": "visual-complexity",
-        "title": "Visual Complexity (Edge Density)",
-        "category": "visual-complexity",
-        "normalizedScoreDelta": 0.0,
-        "rawDisplayA": "0.0000",
-        "rawDisplayB": "0.0000",
-        "direction": "equal"
-      },
-      {
-        "id": "elements-target-size",
-        "title": "Elements & Target Size",
+        "id": "elements",
+        "title": "Detected Elements",
         "category": "elements",
-        "normalizedScoreDelta": 0.0,
-        "rawDisplayA": "0 / 0",
-        "rawDisplayB": "0 / 0",
-        "direction": "equal"
-      },
-      {
-        "id": "hicks-law",
-        "title": "Hick's Law Estimate",
-        "category": "cognitive-load",
         "normalizedScoreDelta": null,
-        "rawDisplayA": "0.0 ms",
-        "rawDisplayB": "0.0 ms",
+        "rawDisplayA": "0 elements",
+        "rawDisplayB": "0 elements",
         "direction": "not_available"
       },
       {
         "id": "grouping",
         "title": "Grouping (Estimated Group Count)",
         "category": "grouping",
-        "normalizedScoreDelta": 0.0,
+        "normalizedScoreDelta": null,
         "rawDisplayA": "0 groups",
         "rawDisplayB": "0 groups",
-        "direction": "equal"
+        "direction": "not_available"
       },
       {
         "id": "text-density",
@@ -735,15 +595,6 @@
         "rawDisplayA": "0.00%",
         "rawDisplayB": "0.00%",
         "direction": "equal"
-      },
-      {
-        "id": "whitespace-alignment",
-        "title": "Whitespace & Alignment",
-        "category": "layout",
-        "normalizedScoreDelta": null,
-        "rawDisplayA": "Whitespace 100.00% \u00b7 Alignment variance No data available",
-        "rawDisplayB": "Whitespace 0.00% \u00b7 Alignment variance No data available",
-        "direction": "not_available"
       },
       {
         "id": "colorfulness",

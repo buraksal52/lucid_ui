@@ -21,9 +21,8 @@ screenshots (done ad hoc, outside this suite, against
 import numpy as np
 import pytest
 
-from app.metrics.corrected import analyze_elements_v2, analyze_whitespace_alignment_v2
+from app.metrics.corrected import analyze_elements_v2
 from app.metrics.engine import MetricEngine
-from reference.legacy_metric_engine import normalize_metrics, weighted_score
 
 
 def _empty_ocr() -> dict:
@@ -100,21 +99,29 @@ def test_moderate_scale_difference_has_no_warning() -> None:
 #
 # A single logical layout, defined once at the reference width (390), is
 # rendered as raw contour rectangles at four different raw pixel widths
-# (320/375/390/430 -- the four widths named in the fix request). Comparing
-# metrics computed directly on each raw-width render ("before") against
-# metrics computed after each is normalized back to the reference width
-# ("after") demonstrates the fix: the same design should read the same
+# (320/375/390/430 -- the four widths named in the original fix request).
+# Comparing metrics computed after each is normalized back to the reference
+# width demonstrates the fix: the same design should read the same
 # regardless of which width it happened to be exported at.
+#
+# The original version of this section tracked `smallTargetsBelow44px`/
+# `alignedElementRatio`/`whitespaceRatio`/`weightedScore` specifically
+# because they were the clearest illustration of a fixed-raw-pixel-
+# threshold consistency bug (a 9px reference-space gap crossing the fixed
+# 8px alignment tolerance purely from render width). All four were removed
+# from the engine/API as Tier 3 ("Problematic") per
+# docs/metrics/reliability-tiers.md (corrected-v4) -- this section now
+# tracks the retained, still resolution-sensitive `contourBasedCount`/
+# `interactiveTargetCount` instead. The `_normalize_for_analysis` resize
+# mechanism itself is unchanged by that removal and is covered directly by
+# the unit tests above.
 
 _REFERENCE_WIDTH = 390
 _REFERENCE_HEIGHT = 700
 _LOGICAL_ELEMENTS = [
     (20, 550, 350, 48),  # a real button, >=44px both dims at reference scale
-    (20, 100, 32, 32),  # icon A, x=20
-    (29, 160, 32, 32),  # icon B, x=29 -- a 9px reference-space offset from icon A: just
-    # outside the (fixed, unscaled) 8px alignment tolerance at reference scale, but downscaling
-    # (e.g. to 320px, factor ~0.82) shrinks that same 9px gap to ~7.4px raw -- under the
-    # tolerance -- flipping "aligned" purely from render width unless normalized first.
+    (20, 100, 32, 32),  # icon A
+    (29, 160, 32, 32),  # icon B
     (300, 250, 32, 32),  # icon C, unaligned with anything
 ]
 _TEST_WIDTHS = (320, 375, 390, 430)
@@ -131,81 +138,22 @@ def _render_design(width: int) -> np.ndarray:
 
 
 def _compute_metrics(img: np.ndarray) -> dict:
-    elements_meta, elements, _targets = analyze_elements_v2(img, _empty_ocr())
-    whitespace = analyze_whitespace_alignment_v2(img, elements)
-    raw = {
-        "contrast": {"averageContrastRatio": 10.0},
-        "clutter": {"edgeDensity": 0.05},
-        "textDensity": {"textDensityRatio": 0.05},
-        "elements": elements_meta,
-        "groups": {"estimatedGroupCount": 4},
-    }
-    score = weighted_score(normalize_metrics(raw), "general")
+    elements_meta, _elements, _targets = analyze_elements_v2(img, _empty_ocr())
     return {
+        "contourBasedCount": elements_meta["contourBasedCount"],
         "interactiveTargetCount": elements_meta["interactiveTargetCount"],
-        "smallTargetsBelow44px": elements_meta["smallTargetsBelow44px"],
-        "alignedElementRatio": whitespace["alignedElementRatio"],
-        "whitespaceRatio": whitespace["whitespaceRatio"],
-        "weightedScore": score,
     }
-
-
-def test_native_resolution_analysis_is_inconsistent_across_widths() -> None:
-    """Documents the bug being fixed: analyzing each raw-width render
-    directly (no normalization) produces inconsistent metrics for the
-    identical design, exceeding the fix's own tolerance targets."""
-    results = {w: _compute_metrics(_render_design(w)) for w in _TEST_WIDTHS}
-    small_targets = [r["smallTargetsBelow44px"] for r in results.values()]
-    aligned = [r["alignedElementRatio"] for r in results.values()]
-    whitespace = [r["whitespaceRatio"] for r in results.values()]
-    scores = [r["weightedScore"] for r in results.values()]
-
-    # At least one of these must exceed tolerance pre-fix, proving the
-    # synthetic design actually exercises the bug (not a vacuous check).
-    assert (
-        (max(small_targets) - min(small_targets)) > 0
-        or (max(aligned) - min(aligned)) > 0.05
-        or (max(whitespace) - min(whitespace)) > 0.03
-        or (max(scores) - min(scores)) > 3
-    )
 
 
 @pytest.mark.parametrize("width", _TEST_WIDTHS)
 def test_normalized_analysis_matches_reference_within_tolerance(width: int) -> None:
-    """The fix: after resizing back to the reference width, each of the
-    four renders must agree with the reference-width (390) render itself,
-    within the fix's stated tolerance targets."""
+    """After resizing back to the reference width, each of the four renders
+    must agree with the reference-width (390) render itself."""
     reference_metrics = _compute_metrics(_render_design(_REFERENCE_WIDTH))
 
     raw_render = _render_design(width)
     normalized_img, _info = MetricEngine._normalize_for_analysis(raw_render)
     metrics = _compute_metrics(normalized_img)
 
-    assert abs(metrics["interactiveTargetCount"] - reference_metrics["interactiveTargetCount"]) <= 1
-    assert metrics["smallTargetsBelow44px"] == reference_metrics["smallTargetsBelow44px"]
-    assert abs(metrics["alignedElementRatio"] - reference_metrics["alignedElementRatio"]) <= 0.05
-    assert abs(metrics["whitespaceRatio"] - reference_metrics["whitespaceRatio"]) <= 0.03
-    assert abs(metrics["weightedScore"] - reference_metrics["weightedScore"]) <= 3
-
-
-def test_normalization_meaningfully_reduces_cross_width_spread() -> None:
-    """End-to-end comparison: the spread (max-min) across all four widths
-    must shrink after normalization for every metric the fix targets."""
-    before = {w: _compute_metrics(_render_design(w)) for w in _TEST_WIDTHS}
-    after = {}
-    for w in _TEST_WIDTHS:
-        normalized_img, _info = MetricEngine._normalize_for_analysis(_render_design(w))
-        after[w] = _compute_metrics(normalized_img)
-
-    def spread(results: dict, key: str) -> float:
-        values = [r[key] for r in results.values()]
-        return max(values) - min(values)
-
-    for key in ("smallTargetsBelow44px", "alignedElementRatio", "whitespaceRatio", "weightedScore"):
-        assert spread(after, key) <= spread(before, key), f"{key} spread got worse after normalization"
-
-    # And the post-fix spread must meet the fix's own tolerance targets outright.
-    assert spread(after, "smallTargetsBelow44px") == 0
-    assert spread(after, "alignedElementRatio") <= 0.05
-    assert spread(after, "whitespaceRatio") <= 0.03
-    assert spread(after, "weightedScore") <= 3
+    assert metrics["contourBasedCount"] == reference_metrics["contourBasedCount"]
+    assert metrics["interactiveTargetCount"] == reference_metrics["interactiveTargetCount"]

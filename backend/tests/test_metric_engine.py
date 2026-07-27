@@ -71,17 +71,15 @@ def test_returns_raw_metrics(engine: MetricEngine, decoded_image: DecodedImage) 
     assert set(result.raw.keys()) == {
         "resolution",
         "contrast",
-        "clutter",
         "elements",
         "groups",
         "textDensity",
-        "whitespaceAlignment",
     }
 
 
 def test_returns_normalized_metrics(engine: MetricEngine, decoded_image: DecodedImage) -> None:
     result = engine.analyze(decoded_image, AnalysisContext.GENERAL)
-    assert set(result.normalized.keys()) == {"contrast", "clutter", "textDensity", "elementSize", "groupCount"}
+    assert set(result.normalized.keys()) == {"contrast", "textDensity"}
 
 
 def test_returns_additional_signals(engine: MetricEngine, decoded_image: DecodedImage) -> None:
@@ -104,15 +102,11 @@ def test_preserves_camel_case_legacy_field_names(engine: MetricEngine, decoded_i
     assert "averageContrastRatio" in result.raw["contrast"]
     assert "regionsAnalyzed" in result.raw["contrast"]
     assert "regionsBelowAAThreshold" in result.raw["contrast"]
-    assert "edgeDensity" in result.raw["clutter"]
     assert "detectedElementCount" in result.raw["elements"]
-    assert "hicksLawEstimateMs" in result.raw["elements"]
-    assert "smallTargetsBelow44px" in result.raw["elements"]
+    assert "interactiveTargetCount" in result.raw["elements"]
     assert "estimatedGroupCount" in result.raw["groups"]
     assert "textDensityRatio" in result.raw["textDensity"]
     assert "fontSizeDiversityProxy" in result.raw["textDensity"]
-    assert "whitespaceRatio" in result.raw["whitespaceAlignment"]
-    assert "alignmentVariance" in result.raw["whitespaceAlignment"]
     assert "colorfulnessScore" in result.additional_signals["colorfulness"]
     assert "averageIndexOfDifficulty" in result.additional_signals["fittsFullIndexOfDifficulty"]
     assert "asymmetryScore" in result.additional_signals["visualBalance"]
@@ -138,7 +132,20 @@ def test_general_and_expert_produce_different_weighted_scores(
 
 def test_metric_engine_version(engine: MetricEngine, decoded_image: DecodedImage) -> None:
     result = engine.analyze(decoded_image, AnalysisContext.GENERAL)
-    assert result.metric_engine_version == "corrected-v3"
+    assert result.metric_engine_version == "corrected-v4"
+
+
+# ---------- Tier 3 removal (docs/metrics/reliability-tiers.md, corrected-v4) ----------
+
+
+def test_tier_3_fields_are_no_longer_present(engine: MetricEngine, decoded_image: DecodedImage) -> None:
+    result = engine.analyze(decoded_image, AnalysisContext.GENERAL)
+    assert "clutter" not in result.raw
+    assert "whitespaceAlignment" not in result.raw
+    for key in ("hicksLawEstimateMs", "hicksLawBConstantMs", "smallTargetsBelow44px", "repeatingGridExcludedCount"):
+        assert key not in result.raw["elements"]
+    for key in ("clutter", "elementSize", "groupCount"):
+        assert key not in result.normalized
 
 
 def test_score_name(engine: MetricEngine, decoded_image: DecodedImage) -> None:
@@ -148,19 +155,21 @@ def test_score_name(engine: MetricEngine, decoded_image: DecodedImage) -> None:
 
 # ---------- Corrected-reference equivalence (most important test in this phase) ----------
 #
-# As of engine version "corrected-v3", MetricEngine is wired to
+# As of engine version "corrected-v4", MetricEngine is wired to
 # `app.metrics.corrected` for contrast(v4)/elements/groups/textDensity/
-# whitespaceAlignment/fittsFullIndexOfDifficulty (see that module's
-# docstring for why), and still to the unmodified legacy module for
-# clutter/colorfulness/visualBalance/normalize_metrics/weighted_score. This
-# test pins MetricEngine's composition to exactly that split — it
-# deliberately no longer expects bit-for-bit equality with the legacy
-# module's `analyze_contrast`/`analyze_elements`/`analyze_groups`/
-# `analyze_text_density`/`analyze_whitespace_alignment`/`analyze_fitts_full`,
-# which the audit found produced misleading values for those six metrics,
-# nor with `corrected.analyze_contrast_v2` (corrected-v1) or
-# `analyze_contrast_v3` (corrected-v2), both superseded by the dual-estimate
-# `analyze_contrast_v4` (corrected-v3) — see that function's docstring.
+# fittsFullIndexOfDifficulty/normalize_metrics_v2/weighted_score_v2 (see that
+# module's docstring for why), and still to the unmodified legacy module for
+# colorfulness/visualBalance. This test pins MetricEngine's composition to
+# exactly that split — it deliberately no longer expects bit-for-bit
+# equality with the legacy module's
+# `analyze_contrast`/`analyze_elements`/`analyze_groups`/`analyze_text_density`/
+# `analyze_whitespace_alignment`/`analyze_fitts_full`/`normalize_metrics`/
+# `weighted_score`, which either the audit found produced misleading values
+# (six metrics) or which fed the Tier 3 composite-score components removed
+# in Fix 15 (`docs/metrics/reliability-tiers.md`), nor with
+# `corrected.analyze_contrast_v2` (corrected-v1) or `analyze_contrast_v3`
+# (corrected-v2), both superseded by the dual-estimate `analyze_contrast_v4`
+# (corrected-v3) — see that function's docstring.
 
 
 def test_engine_output_matches_corrected_reference_exactly(
@@ -181,11 +190,9 @@ def test_engine_output_matches_corrected_reference_exactly(
     expected_raw = {
         "resolution": resolution_info,
         "contrast": contrast_aggregate,
-        "clutter": legacy.analyze_clutter(resized_image),
         "elements": elements_meta,
         "groups": corrected.analyze_groups_v2(elements, resized_image.shape),
         "textDensity": corrected.analyze_text_density_v2(resized_image, scaled_ocr_data),
-        "whitespaceAlignment": corrected.analyze_whitespace_alignment_v2(resized_image, elements),
     }
     expected_additional = {
         "colorfulness": legacy.analyze_colorfulness(resized_image),
@@ -193,9 +200,9 @@ def test_engine_output_matches_corrected_reference_exactly(
         "fittsFullIndexOfDifficulty": corrected.analyze_fitts_full_v2(control_like_elements),
         "visualBalance": legacy.analyze_visual_balance(resized_image),
     }
-    expected_normalized = legacy.normalize_metrics(expected_raw)
-    expected_score_general = legacy.weighted_score(expected_normalized, "general")
-    expected_score_expert = legacy.weighted_score(expected_normalized, "expert")
+    expected_normalized = corrected.normalize_metrics_v2(expected_raw)
+    expected_score_general = corrected.weighted_score_v2(expected_normalized, "general")
+    expected_score_expert = corrected.weighted_score_v2(expected_normalized, "expert")
 
     general_result = engine.analyze(decoded_image, AnalysisContext.GENERAL)
     expert_result = engine.analyze(decoded_image, AnalysisContext.EXPERT)
@@ -259,6 +266,6 @@ def test_unexpected_metric_function_error_is_not_silently_swallowed(
     def boom(*args, **kwargs):
         raise RuntimeError("unexpected bug in a metric function")
 
-    monkeypatch.setattr("app.metrics.engine.analyze_clutter", boom)
+    monkeypatch.setattr("app.metrics.engine.analyze_colorfulness", boom)
     with pytest.raises(MetricAnalysisError):
         engine.analyze(decoded_image, AnalysisContext.GENERAL)

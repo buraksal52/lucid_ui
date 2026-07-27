@@ -17,6 +17,7 @@ import logging
 from pydantic import ValidationError
 
 from app.llm.exceptions import LLMInterpretationError, LLMProviderUnavailableError
+from app.llm.interpretation_guard import filter_observations, filter_recommendations, filter_summary
 from app.llm.models import LLMStructuredOutput
 from app.llm.prompt import build_prompt
 from app.llm.provider import LLMProvider
@@ -25,6 +26,11 @@ from app.schemas.common import AnalysisContext, LLMStatus
 from app.schemas.llm import LLMInterpretationResult, LLMObservation
 
 logger = logging.getLogger("lucidui.llm")
+
+_FILTERED_CONTENT_NOTICE = (
+    "One or more generated statements were removed for exceeding this system's descriptive-metric "
+    "interpretation rules — see docs/metrics/interpretation-taxonomy.md."
+)
 
 
 class LLMInterpretationService:
@@ -64,10 +70,37 @@ class LLMInterpretationService:
             logger.warning("LLM provider %s response failed validation: %s", self._provider_name, exc.message)
             return self._failed_result()
 
+        # Deterministic content guard (app.llm.interpretation_guard): the
+        # prompt is advisory only and a real provider has been observed to
+        # ignore it (e.g. turning estimatedGroupCount into a cognitive-load
+        # claim, or colorfulness/hue diversity into an "increase this"
+        # recommendation) — this is the actual enforced backstop, applied
+        # regardless of provider compliance. Drops, never rewrites, any
+        # unsupported statement; a justified, unrelated recommendation
+        # (e.g. a confirmed below-AA-threshold contrast finding) is
+        # untouched since it shares no vocabulary with the forbidden
+        # combinations.
+        filtered_summary, summary_dropped = filter_summary(structured.summary)
+        filtered_recommendations, recommendations_dropped = filter_recommendations(structured.recommendations)
+        filtered_observations, observations_dropped = filter_observations(structured.observations)
+        any_dropped = summary_dropped or recommendations_dropped or observations_dropped
+
+        limitations = list(structured.limitations)
+        if any_dropped:
+            logger.info(
+                "Interpretation guard filtered unsupported content from provider %s "
+                "(summary=%s, recommendations=%s, observations=%s)",
+                self._provider_name,
+                summary_dropped,
+                recommendations_dropped,
+                observations_dropped,
+            )
+            limitations.append(_FILTERED_CONTENT_NOTICE)
+
         return LLMInterpretationResult(
             status=LLMStatus.COMPLETED,
             provider=self._provider_name,
-            summary=structured.summary,
+            summary=filtered_summary,
             observations=[
                 LLMObservation(
                     id=observation.id,
@@ -75,10 +108,10 @@ class LLMInterpretationService:
                     metric_evidence=observation.metric_evidence,
                     category=observation.category,
                 )
-                for observation in structured.observations
+                for observation in filtered_observations
             ],
-            recommendations=structured.recommendations,
-            limitations=structured.limitations,
+            recommendations=filtered_recommendations,
+            limitations=limitations,
         )
 
     @staticmethod

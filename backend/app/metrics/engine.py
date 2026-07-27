@@ -63,11 +63,23 @@ disclosed via `raw.resolution.resolutionWarning`/`inputQualityStatus`
 rather than silently claimed as fixed; nor does it normalize two exports
 that are both already above the floor against each other. See
 `app.metrics.corrected`'s module docstring for the full list and
-rationale. `analyze_clutter`, `analyze_colorfulness`,
-`analyze_visual_balance`, `normalize_metrics`, and `weighted_score` are
-unchanged and still imported from the legacy module — composite-score
-weights/normalization bounds and the colorfulness formula are explicitly
-out of scope for this correction pass.
+rationale. `analyze_colorfulness` and `analyze_visual_balance` are
+unchanged and still imported from the legacy module — the colorfulness
+formula is explicitly out of scope for this correction pass.
+
+A later pass (Fix 15, `app.metrics.corrected`) removed every metric
+classified Tier 3 ("Problematic") in docs/metrics/reliability-tiers.md
+from the engine/API entirely, per explicit user instruction for
+research-paper defensibility: `clutter` (`edgeDensity`), `whitespaceAlignment`
+(`whitespaceRatio`/`alignmentVariance`/`alignedElementRatio`), and
+`elements.hicksLawEstimateMs`/`hicksLawBConstantMs`/`smallTargetsBelow44px`/
+`repeatingGridExcludedCount` are no longer computed or returned (the
+repeating-grid *filtering* itself is retained — only its standalone count
+field is gone). The composite score now uses `weighted_score_v2`/
+`WEIGHTS_V2`/`normalize_metrics_v2` (`app.metrics.corrected`), covering
+only `contrast`+`textDensity` — see that module's Fix 15 docstring section
+for the weight-rescaling rationale. Every report now carries
+`metricEngineVersion: "corrected-v4"`.
 
 Runtime pipeline:
 
@@ -91,17 +103,17 @@ Runtime pipeline:
             +--> Fitts proxy (analyze_fitts_full_v2, interactive targets only)
             |
             v
-    Remaining deterministic metrics (contrast v4, clutter, text density,
-    whitespace/alignment, colorfulness, hue diversity, visual balance)
+    Remaining deterministic metrics (contrast v4, text density,
+    colorfulness, hue diversity, visual balance)
             |
             v
-    Normalization (normalize_metrics, unchanged)
+    Normalization (normalize_metrics_v2: contrast + textDensity only)
             |
             v
-    Weighted score (weighted_score, unchanged)
+    Weighted score (weighted_score_v2)
             |
             v
-    Typed, JSON-safe DeterministicMetricResult (metricEngineVersion: "corrected-v3")
+    Typed, JSON-safe DeterministicMetricResult (metricEngineVersion: "corrected-v4")
 """
 
 from typing import Any
@@ -119,21 +131,19 @@ from app.metrics.corrected import (
     analyze_groups_v2,
     analyze_hue_diversity,
     analyze_text_density_v2,
-    analyze_whitespace_alignment_v2,
+    normalize_metrics_v2,
+    weighted_score_v2,
 )
 from app.metrics.exceptions import MetricAnalysisError
 from app.metrics.models import DeterministicMetricResult
 from app.metrics.serializer import to_json_safe
 from app.schemas.common import AnalysisContext
 from reference.legacy_metric_engine import (
-    analyze_clutter,
     analyze_colorfulness,
     analyze_visual_balance,
-    normalize_metrics,
-    weighted_score,
 )
 
-_METRIC_ENGINE_VERSION = "corrected-v3"
+_METRIC_ENGINE_VERSION = "corrected-v4"
 
 # Fix 2f (post-audit follow-up): resolution-driven metric inconsistency.
 #
@@ -212,11 +222,9 @@ class MetricEngine:
             raw: dict[str, Any] = {
                 "resolution": resolution_info,
                 "contrast": contrast_aggregate,
-                "clutter": analyze_clutter(cv_image),
                 "elements": elements_meta,
                 "groups": analyze_groups_v2(elements, cv_image.shape),
                 "textDensity": analyze_text_density_v2(cv_image, ocr_data),
-                "whitespaceAlignment": analyze_whitespace_alignment_v2(cv_image, elements),
             }
 
             additional_signals: dict[str, Any] = {
@@ -226,8 +234,8 @@ class MetricEngine:
                 "visualBalance": analyze_visual_balance(cv_image),
             }
 
-            normalized = normalize_metrics(raw)
-            score = weighted_score(normalized, context.value)
+            normalized = normalize_metrics_v2(raw)
+            score = weighted_score_v2(normalized, context.value)
         except MetricAnalysisError:
             raise
         except Exception as exc:

@@ -74,7 +74,7 @@ This roadmap defines the phased development plan for LucidUI. Each phase must be
 ## Presentation Report Layer (additive, phase-independent)
 
 - [x] `AnalysisReport.presentation` — a ready-to-render view over `lucidui`/`llmInterpretation`/`uiclip`, additive and backward-compatible (`app/schemas/presentation.py`, `app/presentation/report_builder.py`)
-- [x] Fixed-order, ready-to-render metric sections (contrast, visual complexity, elements & target size, Hick's Law, grouping, text density, whitespace & alignment, colorfulness, Fitts's Law, visual balance)
+- [x] Fixed-order, ready-to-render metric sections (contrast, detected elements, grouping, text density, colorfulness, Fitts's Law, visual balance — visual complexity, Hick's Law, whitespace & alignment, and the target-size angle of elements were removed as Tier 3/"Problematic" in `corrected-v4`, see [docs/metrics/reliability-tiers.md](docs/metrics/reliability-tiers.md))
 - [x] LLM observation → metric section evidence matching, with a deterministic fallback when no observation matches
 - [x] Composite and UIClip summary cards, both explicitly non-verdict
 - [x] Tests (`backend/tests/test_presentation_report_builder.py`, `backend/tests/test_presentation_api.py`)

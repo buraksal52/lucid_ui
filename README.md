@@ -1,17 +1,17 @@
 # LucidUI
 
-LucidUI looks at a screenshot of a user interface and reports what it measures — contrast, clutter, text density, element sizes, and more — without declaring the design "good" or "bad." It also runs a second, independent AI model (UIClip) on the same screenshot, and an LLM explains the numbers in plain language. Everything is shown side by side so a human can decide what it means.
+LucidUI looks at a screenshot of a user interface and reports what it measures — contrast, text density, element counts, and more — without declaring the design "good" or "bad." It also runs a second, independent AI model (UIClip) on the same screenshot, and an LLM explains the numbers in plain language. Everything is shown side by side so a human can decide what it means.
 
 ## Why "Flashlight, Not a Judge"
 
-LucidUI never says a UI is objectively good, bad, ugly, or correct. It only reports things like "this text is below the recommended contrast threshold" or "this button is smaller than the usual minimum touch size." Think of it as a flashlight that points at things worth looking at — not a judge that hands down a verdict. See [CLAUDE.md](CLAUDE.md) for the full set of rules this project follows.
+LucidUI never says a UI is objectively good, bad, ugly, or correct. It only reports things like "this text is below the recommended contrast threshold" or "this screen has an estimated N visual groupings." Think of it as a flashlight that points at things worth looking at — not a judge that hands down a verdict. See [CLAUDE.md](CLAUDE.md) for the full set of rules this project follows.
 
 ## How a Screenshot Flows Through the System
 
 ```text
 1. You upload a screenshot
 2. LucidUI measures it directly           UIClip (an independent AI model)
-   (contrast, clutter, element sizes...)   scores it, separately
+   (contrast, element counts...)          scores it, separately
               |                                      |
               v                                      v
       Deterministic metrics                    UIClip's own score
@@ -42,7 +42,7 @@ See [ROADMAP.md](ROADMAP.md) for the detailed, phase-by-phase plan (note: a coup
 
 ## The Three Independent Pieces
 
-1. **The metric engine** — plain computer vision and OCR (contrast, clutter, element sizes, text density, and more). No AI model involved; every number is explainable and traceable back to the pixels. See [docs/metrics/metric-catalog.md](docs/metrics/metric-catalog.md) for what each one measures, and [docs/metrics/reliability-tiers.md](docs/metrics/reliability-tiers.md) for how much to trust each one — some are solid, some are approximate, and a few have known weak spots.
+1. **The metric engine** — plain computer vision and OCR (contrast, element counts, grouping, text density, and more). No AI model involved; every number is explainable and traceable back to the pixels. See [docs/metrics/metric-catalog.md](docs/metrics/metric-catalog.md) for what each one measures, and [docs/metrics/reliability-tiers.md](docs/metrics/reliability-tiers.md) for how much to trust each one — some are solid, some are approximate, and the least-defensible ones (edge density, Hick's Law, small targets, whitespace/alignment) were removed entirely as of `corrected-v4`.
 2. **UIClip** — a separately trained AI model (not built by this project) that scores a screenshot on its own. It's an opinion to compare against, never treated as the "correct" answer. Defaults to a lightweight offline stand-in; the real model can be turned on (see Setup below).
 3. **The LLM interpretation layer** — reads only the metric engine's numbers (never the screenshot itself) and explains them in plain language. It can only talk about what the numbers actually say — it's not allowed to invent findings.
 

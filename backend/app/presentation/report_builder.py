@@ -28,9 +28,6 @@ from dataclasses import dataclass
 from app.metrics.models import DeterministicMetricResult
 from app.presentation.formatting import (
     format_count,
-    format_decimal,
-    format_fraction,
-    format_ms,
     format_percentage,
     format_plain,
     format_ratio_to_one,
@@ -53,8 +50,9 @@ _PROXY_DISCLAIMER = (
 )
 
 _COMPOSITE_EXPLANATION = (
-    "This composite score is a weighted signal summary of the metrics above, not a quality "
-    "judgment — see docs/metrics/scoring-and-normalization.md."
+    "This composite score is a weighted signal summary of only two metrics — contrast and text "
+    "density, not every metric above — and is not a quality judgment or overall UI quality score; "
+    "see docs/metrics/scoring-and-normalization.md."
 )
 
 _UICLIP_SCORE_TYPE = "Learned raw model score"
@@ -105,51 +103,23 @@ def _extract_contrast(m: DeterministicMetricResult) -> _MetricSectionFields:
     )
 
 
-def _extract_clutter(m: DeterministicMetricResult) -> _MetricSectionFields:
-    raw = m.raw.get("clutter", {})
-    normalized_score = m.normalized.get("clutter")
-    paths = ["lucidui.raw.clutter.edgeDensity"]
-    if normalized_score is not None:
-        paths.append("lucidui.normalized.clutter")
-    return _MetricSectionFields(
-        raw_display=format_decimal(raw.get("edgeDensity"), 4),
-        normalized_score=normalized_score,
-        source=raw.get("source"),
-        is_proxy=bool(raw.get("isProxyMetric", False)),
-        evidence_paths=tuple(paths),
-    )
-
-
-def _extract_elements_target_size(m: DeterministicMetricResult) -> _MetricSectionFields:
+def _extract_elements(m: DeterministicMetricResult) -> _MetricSectionFields:
     raw = m.raw.get("elements", {})
-    normalized_score = m.normalized.get("elementSize")
+    # `elementSize` (fed by the now-removed `smallTargetsBelow44px`, Tier 3
+    # per docs/metrics/reliability-tiers.md) no longer exists in
+    # `normalize_metrics_v2` — left null rather than invented.
     paths = [
         "lucidui.raw.elements.detectedElementCount",
         "lucidui.raw.elements.contourBasedCount",
         "lucidui.raw.elements.ocrBasedCount",
-        "lucidui.raw.elements.smallTargetsBelow44px",
+        "lucidui.raw.elements.interactiveTargetCount",
     ]
-    if normalized_score is not None:
-        paths.append("lucidui.normalized.elementSize")
     return _MetricSectionFields(
-        raw_display=format_fraction(raw.get("smallTargetsBelow44px"), raw.get("detectedElementCount")),
-        normalized_score=normalized_score,
-        source=raw.get("source"),
-        is_proxy=bool(raw.get("isProxyMetric", False)),
-        evidence_paths=tuple(paths),
-    )
-
-
-def _extract_hicks_law(m: DeterministicMetricResult) -> _MetricSectionFields:
-    raw = m.raw.get("elements", {})
-    # No normalized form of the Hick's Law estimate exists in
-    # `normalize_metrics` — left null rather than invented.
-    return _MetricSectionFields(
-        raw_display=format_ms(raw.get("hicksLawEstimateMs")),
+        raw_display=format_count(raw.get("detectedElementCount"), "elements"),
         normalized_score=None,
         source=raw.get("source"),
         is_proxy=bool(raw.get("isProxyMetric", False)),
-        evidence_paths=("lucidui.raw.elements.hicksLawEstimateMs", "lucidui.raw.elements.detectedElementCount"),
+        evidence_paths=tuple(paths),
     )
 
 
@@ -189,24 +159,6 @@ def _extract_text_density(m: DeterministicMetricResult) -> _MetricSectionFields:
     )
 
 
-def _extract_whitespace_alignment(m: DeterministicMetricResult) -> _MetricSectionFields:
-    raw = m.raw.get("whitespaceAlignment", {})
-    whitespace_display = format_percentage(raw.get("whitespaceRatio"))
-    alignment_display = format_decimal(raw.get("alignmentVariance"), 4)
-    return _MetricSectionFields(
-        raw_display=f"Whitespace {whitespace_display} · Alignment variance {alignment_display}",
-        # No normalized form of whitespace/alignment exists in
-        # `normalize_metrics` — left null rather than invented.
-        normalized_score=None,
-        source=raw.get("source"),
-        is_proxy=bool(raw.get("isProxyMetric", False)),
-        evidence_paths=(
-            "lucidui.raw.whitespaceAlignment.whitespaceRatio",
-            "lucidui.raw.whitespaceAlignment.alignmentVariance",
-        ),
-    )
-
-
 def _extract_colorfulness(m: DeterministicMetricResult) -> _MetricSectionFields:
     raw = m.additional_signals.get("colorfulness", {})
     return _MetricSectionFields(
@@ -243,25 +195,20 @@ def _extract_visual_balance(m: DeterministicMetricResult) -> _MetricSectionField
     )
 
 
-# Fixed, predictable order — see docs/metrics/metric-catalog.md.
+# Fixed, predictable order — see docs/metrics/metric-catalog.md. As of
+# corrected-v4, the "Visual Complexity", "Hick's Law", and "Whitespace &
+# Alignment" sections were removed (Tier 3 per docs/metrics/reliability-tiers.md)
+# and "Elements & Target Size" was reworked into "Detected Elements" (the
+# target-size angle was itself Tier 3) — see report_builder.py's module
+# docstring / app.metrics.corrected's Fix 15.
 _METRIC_SECTION_SPECS: tuple[_MetricSectionSpec, ...] = (
     _MetricSectionSpec("contrast", "Contrast", "contrast", ("raw.contrast", "normalized.contrast"), _extract_contrast),
     _MetricSectionSpec(
-        "visual-complexity",
-        "Visual Complexity (Edge Density)",
-        "visual-complexity",
-        ("raw.clutter", "edgedensity", "normalized.clutter"),
-        _extract_clutter,
-    ),
-    _MetricSectionSpec(
-        "elements-target-size",
-        "Elements & Target Size",
         "elements",
-        ("raw.elements", "normalized.elementsize"),
-        _extract_elements_target_size,
-    ),
-    _MetricSectionSpec(
-        "hicks-law", "Hick's Law Estimate", "cognitive-load", ("hickslaw",), _extract_hicks_law
+        "Detected Elements",
+        "elements",
+        ("raw.elements",),
+        _extract_elements,
     ),
     _MetricSectionSpec(
         "grouping",
@@ -276,13 +223,6 @@ _METRIC_SECTION_SPECS: tuple[_MetricSectionSpec, ...] = (
         "text",
         ("raw.textdensity", "normalized.textdensity"),
         _extract_text_density,
-    ),
-    _MetricSectionSpec(
-        "whitespace-alignment",
-        "Whitespace & Alignment",
-        "layout",
-        ("raw.whitespacealignment",),
-        _extract_whitespace_alignment,
     ),
     _MetricSectionSpec("colorfulness", "Colorfulness", "color", ("colorfulness",), _extract_colorfulness),
     _MetricSectionSpec(

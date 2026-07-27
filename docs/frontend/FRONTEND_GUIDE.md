@@ -79,7 +79,7 @@ A separate **Compare** flow lets a user upload two screenshots instead of one �
 Built from `presentation` (see "Presentation Layer" above):
 
 1. **Analysis summary** — `presentation.title`, `presentation.summary`, overall `status`, `presentation.closingNote`.
-2. **LucidUI metric sections** — `presentation.metricSections[]`, rendered in the given fixed order (10 cards: Contrast, Visual Complexity, Elements & Target Size, Hick's Law, Grouping, Text Density, Whitespace & Alignment, Colorfulness, Fitts's Law, Visual Balance).
+2. **LucidUI metric sections** — `presentation.metricSections[]`, rendered in the given fixed order (7 cards: Contrast, Detected Elements, Grouping, Text Density, Colorfulness, Fitts's Law, Visual Balance — as of `corrected-v4`, the Visual Complexity, Hick's Law, and Whitespace & Alignment cards, and the target-size angle of Elements, were removed as Tier 3/"Problematic," see [docs/metrics/reliability-tiers.md](../metrics/reliability-tiers.md)).
 3. **Composite score** — `presentation.composite`, with its fixed non-verdict `explanation`.
 4. **UIClip evaluation card** — `presentation.uiclipSummary`, shown as a standalone, independent result — see "LucidUI vs. UIClip" below.
 5. **Recommendations and limitations** — `presentation.recommendations[]`, `presentation.limitations[]`.
