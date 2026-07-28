@@ -17,6 +17,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY requirements.txt .
+# torch's default PyPI wheel bundles CUDA runtimes (multi-GB) even though
+# this container only ever runs UIClip on CPU. That size blows past Railway
+# free-tier build/image and memory limits, so install the CPU-only build
+# from PyTorch's own index first, matching the version range pinned in
+# requirements.txt. pip then finds `torch` already satisfied and skips it
+# when installing the rest of requirements.txt below.
+RUN pip install --no-cache-dir "torch>=2.2,<3.0" --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
