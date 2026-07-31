@@ -21,9 +21,8 @@ export function ReportDashboard({ report }: ReportDashboardProps) {
     <section className="report-shell mt-10">
       <AnalysisSummary report={report} />
 
-      <div className="channel-grid mt-8 grid min-w-0 gap-6 lg:grid-cols-3">
+      <div className="channel-grid mt-8 grid min-w-0 gap-6 lg:grid-cols-2">
         <DeterministicLane report={report} />
-        <LlmLane report={report} />
         <UiclipLane report={report} />
       </div>
 
@@ -135,77 +134,7 @@ function MetricCard({ metric }: MetricCardProps) {
         {metric.normalizedScore === null ? "not calculated" : metric.normalizedScore}
       </p>
       <p className="mt-3 font-body text-sm leading-6">{metric.explanation}</p>
-      {metric.source ? (
-        <p className="mt-3 border-t-2 border-ink pt-2 font-mono text-[11px] leading-5">
-          {metric.source}
-        </p>
-      ) : null}
     </section>
-  );
-}
-
-function LlmLane({ report }: ReportDashboardProps) {
-  const { llmInterpretation } = report;
-  const statusClass = statusTone(llmInterpretation.status);
-
-  return (
-    <article className="channel-lane lane-llm border-2 border-ink border-t-4 border-t-marker bg-paper p-4">
-      <LaneHeader
-        colorClass="text-marker"
-        label="INTERPRETED"
-        subline="Does not see the image."
-      />
-
-      <div className="mt-5 border-l-4 border-marker pl-4">
-        <p className={cx("font-mono text-sm uppercase", statusClass)}>
-          status: {llmInterpretation.status}
-        </p>
-        <p className="mt-2 font-mono text-xs uppercase">
-          provider: {llmInterpretation.provider ?? "not available"}
-        </p>
-
-        {llmInterpretation.status === "completed" ? (
-          <p className="mt-5 font-body text-base leading-7">
-            {llmInterpretation.summary}
-          </p>
-        ) : (
-          <p className={cx("mt-5 font-body text-base leading-7", statusClass)}>
-            {llmInterpretation.status}
-          </p>
-        )}
-      </div>
-
-      {llmInterpretation.observations.length > 0 ? (
-        <div className="mt-6 space-y-3">
-          <p className="font-display text-xs font-bold uppercase tracking-[0.14em]">
-            Observations
-          </p>
-          {llmInterpretation.observations.map((observation) => (
-            <section className="border-2 border-ink p-3" key={observation.id}>
-              <p className="font-body text-sm leading-6">{observation.text}</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {observation.metricEvidence.map((path) => (
-                  <span
-                    className="border-2 border-marker px-2 py-1 font-mono text-[10px]"
-                    key={path}
-                  >
-                    {path}
-                  </span>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-      ) : (
-        <EmptyChannelState text="No LLM observations returned." />
-      )}
-
-      <TextList
-        items={report.presentation.recommendations}
-        title="Recommendations"
-      />
-      <TextList items={report.presentation.limitations} title="Limitations" />
-    </article>
   );
 }
 
