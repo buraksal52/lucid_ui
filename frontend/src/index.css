@@ -93,6 +93,13 @@ button {
   content: none;
 }
 
+.description-clamp {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
 @media (min-width: 1024px) {
   .channel-grid {
     overflow: visible;

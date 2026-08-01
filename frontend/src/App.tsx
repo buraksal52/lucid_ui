@@ -145,6 +145,27 @@ function App() {
     }
   }
 
+  function handleAnalyzeAnother() {
+    const uploadInput = document.getElementById(
+      "sample-upload"
+    ) as HTMLInputElement | null;
+
+    if (uploadInput) {
+      uploadInput.value = "";
+    }
+
+    setFile(null);
+    setReport(null);
+    setError(null);
+    setUiState("idle");
+
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById("analysis-intake")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
   return (
     <main className="min-h-screen bg-paper px-4 py-5 text-ink sm:px-6 lg:px-10">
       <Header currentTime={formattedNow} mode={mode} onModeChange={setMode} />
@@ -170,7 +191,12 @@ function App() {
 
               {error ? <ErrorBanner error={error} /> : null}
 
-              {report ? <ReportDashboard report={report} /> : null}
+              {report ? (
+                <ReportDashboard
+                  report={report}
+                  onAnalyzeAnother={handleAnalyzeAnother}
+                />
+              ) : null}
             </>
           ) : (
             <CompareView />
@@ -254,6 +280,7 @@ function IntakeBlock({
 }: IntakeBlockProps) {
   return (
     <form
+      id="analysis-intake"
       className="intake-block grid gap-6 border-4 border-ink bg-paper p-4 sm:p-6 lg:grid-cols-[1.1fr_0.9fr]"
       onSubmit={onSubmit}
     >

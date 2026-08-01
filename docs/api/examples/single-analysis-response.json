@@ -115,8 +115,7 @@
     "qualityScore": 21.7,
     "normalizedQualityScore": null,
     "observations": [
-      "Mock UIClip observation: this is placeholder output from the offline mock evaluator, not a real model evaluation.",
-      "A real UIClip evaluation would consider both the screenshot and the submitted description together; this mock does not perform any actual image or text analysis."
+      "Mock UIClip output only; no real model evaluation was run."
     ],
     "inferenceTimeMs": 0
   },

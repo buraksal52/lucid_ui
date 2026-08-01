@@ -26,10 +26,6 @@ class MockUIClipProvider:
             "model_version": "mock-uiclip-v1",
             "raw_score": 21.7,
             "observations": [
-                "Mock UIClip observation: this is placeholder output from the offline mock "
-                "evaluator, not a real model evaluation.",
-                "A real UIClip evaluation would consider both the screenshot and the "
-                "submitted description together; this mock does not perform any actual "
-                "image or text analysis.",
+                "Mock UIClip output only; no real model evaluation was run.",
             ],
         }
